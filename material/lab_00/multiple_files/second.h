@@ -1,4 +1,4 @@
-#ifdef second_h
+#ifndef second_h
 #define second_h
 
 #include <stdio.h>
