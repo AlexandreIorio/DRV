@@ -22,6 +22,22 @@ struct ShapeFuncTable {
 struct Shape *Shape_init () { assert (0); }
 void Shape_destroy(__attribute__ ((unused)) struct Shape *obj) { }
 
+/* Volume abstract interface */
+
+struct VolumeFuncTable;
+struct Volume {
+	struct Shape *super;
+	struct VolumeFuncTable *funcTable;
+};
+
+struct VolumeFuncTable {
+	void (*printVolume) (struct Volume *obj);
+	void (*destructor_) (struct Volume *obj);
+};
+
+struct Volume *Volume_init () { assert (0); }
+void Volume_destroy(__attribute__ ((unused)) struct Volume *obj) { }
+
 /* Rectangle class */
 struct Rectangle {
 	struct Shape super;
@@ -38,6 +54,7 @@ void Rectangle_printArea(struct Shape *obj)
 	printf("Rectangle area is %d\n", area);
 }
 
+/* this method must not print it just need to move rectangle, because i reuse it in parallelepiped*/
 void Rectangle_moveTo(struct Shape *obj,
 		      int newx,
 		      int newy)
@@ -139,6 +156,52 @@ struct Shape *Circle_init(int initx, int inity, int initr)
 	return (struct Shape *) obj;
 }
 
+/* Parallelepiped class */
+struct Parallelepiped {
+	struct Volume super;
+	int z;
+};
+
+void Parallelepiped_print_volume(struct Volume *obj) {
+	struct Parallelepiped *pdata = (struct Parallelepiped *) obj;
+	struct Rectangle *base = (struct Rectangle *) pdata->super.super;
+	double volume = base->width * base->height * pdata->z;
+	printf("Parallelepiped volume is %.2f\n", volume);
+}
+
+void Parallelepiped_moveTo(struct Shape *obj, int newx, int newy) {
+	struct Parallelepiped *pdata = (struct Parallelepiped *) obj;
+	rectangleFuncTable.super.moveTo((struct Shape *)pdata->super.super, newx, newy);
+}
+
+void Parallelepiped_destroy(struct Volume *obj) {
+	struct Parallelepiped *pdata = (struct Parallelepiped *) obj;
+	Shape_destroy((struct Shape *)pdata->super.super);
+	Volume_destroy(obj);
+	free(obj);
+}
+
+struct ParallelepipedFuncTable {
+	struct VolumeFuncTable super;
+} parallelepipedFuncTable = {
+			{
+			.printVolume = Parallelepiped_print_volume,
+			.destructor_ = Parallelepiped_destroy
+			}
+};
+
+struct Volume *Parallelepiped_init(struct Rectangle* rectangle, int initz)
+{
+	struct Parallelepiped *obj =
+		(struct Parallelepiped *) malloc(sizeof(struct Parallelepiped));
+	/*Define the function table for the Parallelepiped class */
+		obj->super.funcTable = (struct VolumeFuncTable *) &parallelepipedFuncTable;
+	obj->super.super = (struct Shape *)rectangle;
+	obj->z = initz;
+	return (struct Volume *) obj;
+}
+
+
 #define Shape_PRINTAREA(obj) (((struct Shape *) (obj))->funcTable->printArea((obj)))
 #define Shape_MOVETO(obj, newx, newy)					\
 	(((struct Shape *) (obj))->funcTable->moveTo((obj),(newx), (newy)))
@@ -147,6 +210,10 @@ struct Shape *Circle_init(int initx, int inity, int initr)
 	((struct RectangleFuncTable *) ((struct Shape *) (obj))->funcTable)->setWidth((obj), (width))
 
 #define Shape_DESTROY(obj) (((struct Shape *) (obj)) -> funcTable->destructor_((obj)))
+
+#define Volume_PRINTVOLUME(obj) (((struct Volume *) (obj))->funcTable->printVolume((obj)))
+#define Volume_DESTROY(obj) (((struct Volume *) (obj))->funcTable->destructor_((obj)))
+
 
 /*A function that uses a Shape polymorphically */
 void handleShape(struct Shape *s) {
@@ -172,4 +239,9 @@ int main () {
 	Shape_DESTROY(r);
 	for (i = 1; i >= 0; --i)
 		Shape_DESTROY(shapes[i]);
+
+	struct Volume *volume = Parallelepiped_init((struct Rectangle *) Rectangle_init(2, 2, 2, 2), 5);
+	Volume_PRINTVOLUME(volume);
+	handleShape((struct Shape *)((struct Parallelepiped *)volume)->super.super);
+	Volume_DESTROY(volume);
 }
