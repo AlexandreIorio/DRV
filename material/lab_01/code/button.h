@@ -5,7 +5,7 @@
 #include <sys/time.h>
 
 struct {
-	volatile uint32_t *reg;
+		volatile uint32_t *reg;
 } button_ctl;
 
 /// @brief Method to initialize the button
