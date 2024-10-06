@@ -5,19 +5,21 @@
 void led_up(uint8_t led_index)
 {
 	if (!led_ctl.reg) {
-		printf("Led %d cannot be turned on because leds register not initialized\n", led_index);
+		printf("Led %d cannot be turned on because leds register not initialized\n",
+		       led_index);
 		return;
 	}
-	*led_ctl.reg = *led_ctl.reg | (1 << led_index);
+	*led_ctl.reg |= (1 << led_index);
 }
 
 void led_down(uint8_t led_index)
 {
 	if (!led_ctl.reg) {
-		printf("Led %d cannot be turned off because leds register not initialized\n", led_index);
+		printf("Led %d cannot be turned off because leds register not initialized\n",
+		       led_index);
 		return;
 	}
-	*led_ctl.reg = *led_ctl.reg & ~(1 << led_index);
+	*led_ctl.reg &= ~(1 << led_index);
 }
 
 int init_led(volatile uint32_t *led_register)
@@ -39,31 +41,30 @@ void test_led(void)
 		return;
 	}
 
+	clear_leds();
 	int speed_us = 50000;
-	int nb_round = 2;
-	uint32_t led_state = 0x1; // initial state
+	int nb_round = 1;
 	bool left_direction = true;
 
 	int cycle = 0;
-	while (cycle < nb_round * NUM_LEDS * 2) {
-		*led_ctl.reg = led_state;
-
-		usleep(speed_us);
-
+	int position = 0;
+	do {
 		if (left_direction) {
-			led_state <<= 1;
-			if (led_state & (1 << (NUM_LEDS - 1))) {
+			position++;
+			if (position == NUM_LEDS - 1) {
 				left_direction = false;
 			}
+
 		} else {
-			led_state >>= 1;
-			if (led_state & 0x1) {
+			position--;
+			if (position == 0) {
 				left_direction = true;
 			}
 		}
-
-		cycle++;
-	}
+		led_up(position);
+		usleep(speed_us);
+		led_down(position);
+	} while (position != 0);
 }
 
 void clear_leds(void)
