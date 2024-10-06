@@ -2,6 +2,8 @@
 #define LED_H
 
 #include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define LED_OFFSET 0x00
 #define NUM_LEDS 10
@@ -21,7 +23,8 @@ void led_down(uint8_t led_index);
 
 /// @brief Method to initialize the LED register and test the LED
 /// @param led_register 
-void init_led(volatile uint32_t *led_register);
+/// @return 0 if the initialization is successful, -1 otherwise
+int init_led(volatile uint32_t *led_register);
 
 /// @brief Methode to test the LED
 void test_led(void);
