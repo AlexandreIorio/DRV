@@ -1,0 +1,36 @@
+#ifndef LED_H
+#define LED_H
+
+#include <stdint.h>
+
+#define LED_OFFSET 0x00
+#define NUM_LEDS 10
+
+static struct
+{
+    volatile uint32_t *reg; 
+} led_ctl;
+
+/// @brief Method to turn on the LED
+/// @param led_index The index of the LED to turn on
+void led_up(uint8_t led_index);
+
+/// @brief Method to turn off the LED
+/// @param led_index The index of the LED to turn off
+void led_down(uint8_t led_index);
+
+/// @brief Method to initialize the LED register and test the LED
+/// @param led_register 
+void init_led(volatile uint32_t *led_register);
+
+/// @brief Methode to test the LED
+void test_led(void);
+
+/// @brief Methode to clear the LED
+void clear_leds(void);
+
+/// @brief Methode to turn on all the LED
+void all_leds_on(void);
+
+
+#endif // LED_H
