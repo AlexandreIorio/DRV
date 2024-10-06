@@ -14,6 +14,7 @@
 
 #include "hex.h"
 #include "led.h"
+#include "button.h"
 
 #define BASE_ADDR 0xFF200000
 /*Register*/
@@ -22,156 +23,166 @@
 #define HEX_OFFSET_0_3 0x20
 #define HEX_OFFSET_4_5 0x30
 
-/* Masks */
-#define BUT0_MASK 0x00000001
-#define BUT1_MASK 0x00000002
-
 /*values*/
 #define MIN 0
 #define MAX 99
 #define DELAY_US 10000 // 10 ms
+#define LONG_PRESS_DELAY 100000 // 100 ms
+
+#define LONG_PRESS_DURATION 1500 // 1.5sconds
+
+struct {
+		volatile uint8_t *base_addr;
+		long page_size;
+		int mem_fd;
+} counter_ctl;
 
 /// @brief Method to clear the hex display and the leds
 void clear();
+
+/// @brief Method to initialize the system
+/// @return 0 if the initialization is successful, -1 otherwise
+int initialize();
+
+/// @brief Method to finish the system
+void finish();
 
 bool running = true; // Variable qui contrôle la boucle while
 
 // Important: thanks to this function, the program will exit properly and the mem fd will be closed
 void handle_sigint(int sig)
 {
-	printf("\nInterrupt signal caught\nProgram will now exit properly\n");
-	running = false;
+		printf("\nInterrupt signal caught\nProgram will now exit properly\n");
+		running = false;
 }
 
 int main()
 {
-	/*Map the signal SIGINT to the function handle_sigint*/
-	signal(SIGINT, handle_sigint);
+		/*Map the signal SIGINT to the function handle_sigint*/
+		signal(SIGINT, handle_sigint);
 
-	/*open memory file descriptor*/
-	int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (mem_fd == -1) {
-		perror("Error: cannot open /dev/mem");
-		return EXIT_FAILURE;
-	}
-
-	/*get page size of system*/
-	const long page_size = sysconf(_SC_PAGESIZE);
-	if (page_size == -1) {
-		perror("Error: cannot get page size");
-		return EXIT_FAILURE;
-	}
-
-	/*Map /dev/mem to an address at a multiple of the page size on BASE_ADDR*/
-	uint8_t *base_addr = (uint8_t *)mmap(NULL, page_size,
-					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     mem_fd,
-					     BASE_ADDR & ~(page_size - 1));
-	if (base_addr == MAP_FAILED) {
-		perror("Error: memory mapping failed");
-		close(mem_fd);
-		return -1;
-	}
-
-	/*Get pointers to the registers*/
-	volatile uint32_t *btn_reg =
-		(volatile uint32_t *)(base_addr + BUTTON_OFFSET);
-	volatile uint32_t *hex_reg_0_3 =
-		(volatile uint32_t *)(base_addr + HEX_OFFSET_0_3);
-	volatile uint32_t *hex_reg_4_5 =
-		(volatile uint32_t *)(base_addr + HEX_OFFSET_4_5);
-	volatile uint32_t *led_reg =
-		(volatile uint32_t *)(base_addr + LED_OFFSET);
-
-	init_led(led_reg);
-	init_hex(hex_reg_0_3, hex_reg_4_5);
-
-	uint8_t counter = MIN;
-
-	bool isPressed = false;
-	uint8_t tens = 0;
-	uint8_t unit = 0;
-
-	while (running) {
-        
-        bool btn0 = *btn_reg & BUT0_MASK;
-        bool btn1 = *btn_reg & BUT1_MASK;
-
-		if (btn0 && !isPressed && counter < MAX) {
-			counter++;
-			isPressed = true;
-            printf("counter: %d\n", counter);
-		} else if (btn1 && !isPressed &&
-			   counter > MIN) {
-			counter--;
-			isPressed = true;
-            printf("counter: %d\n", counter);
+		if (initialize() == -1) {
+				printf("Error: initialization failed\n");
+				return EXIT_FAILURE;
 		}
 
-		if (*btn_reg == 0) {
-			isPressed = false;
+		system("clear");
+		printf("---------------------------------\n");
+		printf("Welcome to the counter program\n");
+		printf("---------------------------------\n\n");
+		printf("Press KEY0 to increment and KEY1 to decrement\n");
+		printf("Press and hold KEY0 or KEY1 to increment or decrement faster\n");
+		printf("Press CTRL+C to exit properly\n\n");
+		printf("---------------------------------\n\n");
+
+		bool isPressed = false;
+		uint8_t counter = MIN;
+		uint8_t unit = 0;
+
+		while (running) {
+				int btn0 = read_button(0);
+				int btn1 = read_button(1);
+
+				if (btn0 == -1 || btn1 == -1) {
+						printf("Error: cannot read button\n");
+				}
+
+				if ((btn0 && !isPressed) ||
+					(long_press(0, LONG_PRESS_DURATION) == 0)) {
+						if (counter < MAX) {
+								counter++;
+								isPressed = true;
+								printf("\rcounter: %d ", counter);
+								fflush(stdout);
+						}
+				} else if ((btn1 && !isPressed) ||
+						   (long_press(1, LONG_PRESS_DURATION) == 0)) {
+						if (counter > MIN) {
+								counter--;
+								isPressed = true;
+								printf("\rcounter: %d ", counter);
+								fflush(stdout);
+						}
+				}
+
+				if (!(btn0 || btn1)) {
+						isPressed = false;
+				}
+
+				led_down(unit);
+				unit = get_decimal_digit(counter, 0);
+				display_decimal_number(counter);
+				led_up(unit);
+
+				//compute the delay if a button is long pressed
+				long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
+							  long_press(1, LONG_PRESS_DURATION) == 0) ?
+									 LONG_PRESS_DELAY :
+									 DELAY_US;
+				usleep(delay);
 		}
-		led_down(unit);
-		unit = get_decimal_digit(counter, 0);
-        display_decimal_number(counter);
-		led_up(unit);
 
-		usleep(DELAY_US);
-	}
-
-	munmap(base_addr, page_size);
-
-	close(mem_fd);
-
-	return EXIT_SUCCESS;
-	// // Set hex register to 0
-	// clear();
-
-	// // Counter
-	// int8_t counter = MIN;
-
-	// while (1) {
-	// 	bool isPressed =
-	// 		false; // Boolean used for avoidng unnecessary access memory
-	// 	const uint32_t button_value =
-	// 		*btn_reg; // Current push button state
-
-	// 	if (button_value & BUT0_MASK) {
-	// 		if (counter < MAX) {
-	// 			counter++;
-	// 			isPressed = true;
-	// 		}
-	// 	} else if (button_value & BUT1_MASK) {
-	// 		if (counter > MIN) {
-	// 			counter--;
-	// 			isPressed = true;
-	// 		}
-	// 	} else {
-	// 		// Do nothing
-	// 	}
-
-	// 	if (isPressed) {
-	// 		// Split tens and units
-	// 		const uint8_t tens = counter / 10;
-	// 		const uint8_t unit = counter % 10;
-
-	// 		// Update value
-	// 		*hex_reg = (DEC_TO_HEX[tens] << 8) |
-	// 			       DEC_TO_HEX[unit];
-	// 		*led_reg = (1 << unit);
-	// 	}
-
-	// 	usleep(DELAY_US);
-	// }
-
-	// clear(hex_display, leds);
-
-	return 0;
+		finish();
+		return EXIT_SUCCESS;
 }
 
 void clear()
 {
-	clear_leds();
-	led_up(0);
-	clear_all_hex();
+		clear_leds();
+		clear_all_hex();
+}
+
+int initialize()
+{
+		printf("Initialization started\n");
+		/*open memory file descriptor*/
+		counter_ctl.mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+		if (counter_ctl.mem_fd == -1) {
+				perror("Error: cannot open /dev/mem");
+				return -1;
+		}
+
+		/*get page size of system*/
+		counter_ctl.page_size = sysconf(_SC_PAGESIZE);
+		if (counter_ctl.page_size == -1) {
+				perror("Error: cannot get page size");
+				return -1;
+		}
+
+		/*Map /dev/mem to an address at a multiple of the page size on BASE_ADDR*/
+		counter_ctl.base_addr = (uint8_t *)mmap(
+				NULL, counter_ctl.page_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+				counter_ctl.mem_fd, BASE_ADDR & ~(counter_ctl.page_size - 1));
+		if (counter_ctl.base_addr == MAP_FAILED) {
+				perror("Error: memory mapping failed");
+				close(counter_ctl.mem_fd);
+				return -1;
+		}
+
+		/*Get pointers to the registers*/
+		volatile uint32_t *btn_reg =
+				(volatile uint32_t *)(counter_ctl.base_addr + BUTTON_OFFSET);
+		volatile uint32_t *hex_reg_0_3 =
+				(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_0_3);
+		volatile uint32_t *hex_reg_4_5 =
+				(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_4_5);
+		volatile uint32_t *led_reg =
+				(volatile uint32_t *)(counter_ctl.base_addr + LED_OFFSET);
+
+		/*Initialize the system*/
+		init_led(led_reg);
+		init_hex(hex_reg_0_3, hex_reg_4_5);
+		init_button(btn_reg);
+		printf("Initialization completed\n");
+		return 0;
+}
+
+void finish()
+{
+		clear();
+		printf("Unmapping memory\n");
+		munmap((uint32_t *)counter_ctl.base_addr, counter_ctl.page_size);
+		printf("Closing memory file descriptor\n");
+		close(counter_ctl.mem_fd);
+		printf("Program successfully finished\n");
 }

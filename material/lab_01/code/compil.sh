@@ -1,5 +1,5 @@
 echo "Compiling counter"
-arm-linux-gnueabihf-gcc-6.4.1 -o counter counter.c hex.c led.c
+arm-linux-gnueabihf-gcc-6.4.1 -o counter counter.c hex.c led.c button.c -Wall
 
 echo "Setting the execution permission"
 chmod +x counter

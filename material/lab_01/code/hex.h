@@ -7,11 +7,11 @@
 
 #define HEX_DISPLAY_OFFSET 0x08
 #define NUM_HEX_DISPLAY 6
+#define TEST_HW 1
 
-static struct
-{
-    volatile uint32_t *reg_0_3;
-    volatile uint32_t *reg_4_5; 
+struct {
+	volatile uint32_t *reg_0_3;
+	volatile uint32_t *reg_4_5;
 } hex_ctl;
 
 static const uint8_t DEC_TO_HEX[] = {
@@ -31,7 +31,8 @@ static const uint8_t DEC_TO_HEX[] = {
 /// @param hex_register_0_3 the register for the first 4 hex display
 /// @param hex_register_4_5 the register for the last 2 hex display
 /// @return 0 if the initialization is successful, -1 otherwise
-int init_hex(volatile uint32_t *hex_register_0_3, volatile uint32_t *hex_register_4_5);
+int init_hex(volatile uint32_t *hex_register_0_3,
+	     volatile uint32_t *hex_register_4_5);
 
 /// @brief Clear the hex display
 void clear_hex(uint8_t display_index);
@@ -49,17 +50,15 @@ void all_hex_on(void);
 /// @param number The number to convert
 /// @param digit_index The index of the digit to get
 /// @return the decimal digit at the specified index
-uint8_t get_decimal_digit(int number, uint8_t digit_index); 
+uint8_t get_decimal_digit(int number, uint8_t digit_index);
 
 /// @brief Method to display a number on a specific display
-/// @param number The number to display 
+/// @param number The number to display
 /// @param display_index The index of the display
 void display_digit(uint8_t number, uint8_t display_index);
 
 /// @brief Method to display a decimal number on a specific display
 /// @param number The number to display
 void display_decimal_number(int number);
-
-
 
 #endif // HEX_H
