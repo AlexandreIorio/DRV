@@ -1,20 +1,20 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include <ctype.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <stdint.h>
+#include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <ctype.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
+#include "button.h"
 #include "hex.h"
 #include "led.h"
-#include "button.h"
 
 #define BASE_ADDR 0xFF200000
 /*Register*/
@@ -49,7 +49,8 @@ void finish();
 
 bool running = true; // Variable qui contrôle la boucle while
 
-// Important: thanks to this function, the program will exit properly and the mem fd will be closed
+// Important: thanks to this function, the program will exit properly and the
+// mem fd will be closed
 void handle_sigint(int sig)
 {
 	printf("\nInterrupt signal caught\nProgram will now exit properly\n");
@@ -114,7 +115,7 @@ int main()
 		display_decimal_number(counter);
 		led_up(unit);
 
-		//compute the delay if a button is long pressed
+		// compute the delay if a button is long pressed
 		long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
 			      long_press(1, LONG_PRESS_DURATION) == 0) ?
 				     LONG_PRESS_DELAY :

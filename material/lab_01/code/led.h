@@ -10,7 +10,7 @@
 #define TEST_HW 1
 
 struct {
-		volatile uint32_t *reg;
+	volatile uint32_t *reg;
 } led_ctl;
 
 /// @brief Method to turn on the LED

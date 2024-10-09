@@ -10,21 +10,21 @@
 #define TEST_HW 1
 
 struct {
-		volatile uint32_t *reg_0_3;
-		volatile uint32_t *reg_4_5;
+	volatile uint32_t *reg_0_3;
+	volatile uint32_t *reg_4_5;
 } hex_ctl;
 
 static const uint8_t DEC_TO_HEX[] = {
-		0x3F, // 0
-		0x06, // 1
-		0x5B, // 2
-		0x4F, // 3
-		0x66, // 4
-		0x6D, // 5
-		0x7D, // 6
-		0x07, // 7
-		0x7F, // 8
-		0x6F, // 9
+	0x3F, // 0
+	0x06, // 1
+	0x5B, // 2
+	0x4F, // 3
+	0x66, // 4
+	0x6D, // 5
+	0x7D, // 6
+	0x07, // 7
+	0x7F, // 8
+	0x6F, // 9
 };
 
 /// @brief Initialize the hex display
@@ -32,7 +32,7 @@ static const uint8_t DEC_TO_HEX[] = {
 /// @param hex_register_4_5 the register for the last 2 hex display
 /// @return 0 if the initialization is successful, -1 otherwise
 int init_hex(volatile uint32_t *hex_register_0_3,
-			 volatile uint32_t *hex_register_4_5);
+	     volatile uint32_t *hex_register_4_5);
 
 /// @brief Clear the hex display
 void clear_hex(uint8_t display_index);
