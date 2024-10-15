@@ -23,12 +23,12 @@ int read_value(uint8_t switch_index) {
     return is_up;
 }
 
-int read_all_switches() {
+uint16_t read_all_switches() {
     if (!switch_ctl.reg) {
         printf("Error: switch register not initialized\n");
         return -1;
     }
 
-    int switches = *switch_ctl.reg;
+    uint16_t switches = *switch_ctl.reg;
     return switches;
 }

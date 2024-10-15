@@ -128,3 +128,31 @@ void display_decimal_number(int number)
 		number /= 10;
 	}
 }
+
+void display_value_on_displays(int value, int radix) {
+    if (radix < 2 || radix > 16) {
+        printf("Error: invalid radix\n");
+        return;
+    }
+
+    if (value < 0) {
+        printf("The value must be positive\n");
+        return;
+    }
+
+    int num_digits = (int)ceil(log(value + 1) / log(radix));
+    for (int i = 0; i < NUM_HEX_DISPLAY; i++) {
+        if (value / radix == 0 && i >= num_digits) {
+            clear_hex(i);
+            continue;
+        }
+        int digit = value % radix;
+        if (value > 0 || i < num_digits) {
+            display_digit(digit, i);
+        } else {
+            clear_hex(i);
+        }
+        value /= radix;
+    }
+
+}

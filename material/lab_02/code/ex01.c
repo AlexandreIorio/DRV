@@ -1,20 +1,15 @@
-#include <ctype.h>
-#include <fcntl.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <signal.h>
+#include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "button.h"
 #include "hex.h"
-
+#include "led.h"
+#include "switch.h"
 
 #define BASE_ADDR 0xFF200000
 /*Register*/
@@ -25,8 +20,11 @@
 #define HEX_OFFSET_4_5 0x30
 
 #define LONG_PRESS_DURATION 1500
+#define DELAY_US 100000
 
-struct {
+#define MAX_VALUE 999999
+
+static struct {
 	volatile uint8_t *base_addr;
 	long page_size;
 	int mem_fd;
@@ -67,13 +65,13 @@ int main()
 	printf("Welcome to the switch accumulator program\n");
 	printf("---------------------------------\n\n");
 	printf("Press KEY0 to add the value of the switchs and KEY1 to reset the accumulator\n");
-    printf("Press and hold KEY0 to add value of the switchs faster\n");
+	printf("Press and hold KEY0 to add value of the switchs faster\n");
 	printf("Press CTRL+C to exit properly\n\n");
 	printf("---------------------------------\n\n");
 
 	bool isPressed = false;
 
-    int value = 0;
+	int value = 0;
 
 	while (running) {
 		int btn0 = read_button(0);
@@ -85,35 +83,29 @@ int main()
 
 		if ((btn0 && !isPressed) ||
 		    (long_press(0, LONG_PRESS_DURATION) == 0)) {
-			if (counter < MAX) {
-				counter++;
+			if (value < MAX_VALUE) {
+				value += read_all_switches();
 				isPressed = true;
-				printf("\rcounter: %d ", counter);
-				fflush(stdout);
+				display_value_on_displays(value, 10);
 			}
-		} else if ((btn1 && !isPressed) ||
-			   (long_press(1, LONG_PRESS_DURATION) == 0)) {
-			if (counter > MIN) {
-				counter--;
-				isPressed = true;
-				printf("\rcounter: %d ", counter);
-				fflush(stdout);
-			}
+		} else if (btn1 && !isPressed) {
+			value = 0;
+			isPressed = true;
+			display_value_on_displays(value, 10);
 		}
 
 		if (!(btn0 || btn1)) {
 			isPressed = false;
 		}
 
-		led_down(unit);
-		unit = get_decimal_digit(counter, 0);
-		display_decimal_number(counter);
-		led_up(unit);
+		if (value == MAX_VALUE) {
+			led_up(0);
+		}
 
 		// compute the delay if a button is long pressed
 		long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
 			      long_press(1, LONG_PRESS_DURATION) == 0) ?
-				     LONG_PRESS_DELAY :
+				     LONG_PRESS_DURATION :
 				     DELAY_US;
 		usleep(delay);
 	}
@@ -182,4 +174,3 @@ void finish()
 	close(counter_ctl.mem_fd);
 	printf("Program successfully finished\n");
 }
-

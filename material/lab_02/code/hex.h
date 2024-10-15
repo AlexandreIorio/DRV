@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <math.h>
 
 #define HEX_DISPLAY_OFFSET 0x08
 #define NUM_HEX_DISPLAY 6
@@ -60,5 +61,9 @@ void display_digit(uint8_t number, uint8_t display_index);
 /// @brief Method to display a decimal number on a specific display
 /// @param number The number to display
 void display_decimal_number(int number);
+
+/// @brief Method to display a value on the hex displays
+/// @param value The value to display
+void display_value_on_displays(int value, int radix);
 
 #endif // HEX_H

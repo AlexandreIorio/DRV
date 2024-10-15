@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <sys/time.h>
+#include <stdio.h>
 
 struct {
   volatile uint32_t *reg;
@@ -18,7 +19,7 @@ void init_switch(volatile uint32_t *button_register);
 int read_value(uint8_t switch_index);
 
 /// @brief Method to read all the switches
-/// @return the value of all the switches
-int read_all_switches();
+/// @return the mask of active switches (1 if up, 0 if down)
+uint16_t read_all_switches();
 
 #endif // SWITCH_H
