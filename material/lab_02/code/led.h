@@ -9,7 +9,7 @@
 #define NUM_LEDS 10
 #define TEST_HW 1
 
-struct {
+static struct {
 	volatile uint32_t *reg;
 } led_ctl;
 

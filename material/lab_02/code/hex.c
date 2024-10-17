@@ -1,13 +1,16 @@
 #include "hex.h"
 #include <math.h>
 #include <stdbool.h>
+#include "logger.h"
 
 int init_hex(volatile uint32_t *hex_register_0_3,
 	     volatile uint32_t *hex_register_4_5)
 {
-	printf("Initializing hex display\n");
+	logMessage(INFO, "Initializing hex display\n");
 	if (!hex_register_0_3 || !hex_register_4_5) {
-		printf("Error: hex display register must be a valid address\n");
+		logMessage(
+			ERROR,
+			"Error: hex display register must be a valid address\n");
 		return -1;
 	}
 
@@ -22,8 +25,10 @@ int init_hex(volatile uint32_t *hex_register_0_3,
 void clear_hex(uint8_t display_index)
 {
 	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		printf("Hex display %d cannot be cleared because it is not initialized\n",
-		       display_index);
+		logMessage(
+			WARNING,
+			"Hex display %d cannot be cleared because it is not initialized\n",
+			display_index);
 		return;
 	}
 	if (display_index < 4) {
@@ -38,7 +43,9 @@ void clear_hex(uint8_t display_index)
 void clear_all_hex()
 {
 	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		printf("Hex display cannot be cleared because it is not initialized\n");
+		logMessage(
+			WARNING,
+			"Hex display cannot be cleared because it is not initialized\n");
 		return;
 	}
 
@@ -48,9 +55,9 @@ void clear_all_hex()
 
 void test_hex(void)
 {
-	printf("Testing hex display\n");
+	logMessage(INFO, "Testing hex display\n");
 	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		printf("Error: hex display register not initialized\n");
+		logMessage(WARNING, "hex display register not initialized\n");
 		return;
 	}
 	int display_index = 0;
@@ -72,13 +79,13 @@ void test_hex(void)
 		usleep(50000);
 		clear_hex(display_index);
 	} while (display_index > 0);
-	printf("Hex display test finished\n");
+	logMessage(INFO, "Hex display test finished\n");
 }
 
 void all_hex_on(void)
 {
 	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		printf("Hex display cannot be turned on because it is not initialized\n");
+		logMessage(WARNING, "Hex display cannot be turned on because it is not initialized\n");
 		return;
 	}
 	*hex_ctl.reg_0_3 = 0xFFFFFFFF;
@@ -98,7 +105,7 @@ void display_digit(uint8_t number, uint8_t display_index)
 {
 	clear_hex(display_index);
 	if (display_index > 5) {
-		printf("Error: invalid hex display index\n");
+		logMessage(WARNING, "invalid hex display index\n");
 		return;
 	}
 
@@ -114,7 +121,7 @@ void display_digit(uint8_t number, uint8_t display_index)
 void display_decimal_number(int number)
 {
 	if (number < 0) {
-		printf("The number must be positive\n");
+		logMessage(WARNING, "The number must be positive\n");
 		return;
 	}
 
@@ -129,30 +136,30 @@ void display_decimal_number(int number)
 	}
 }
 
-void display_value_on_displays(int value, int radix) {
-    if (radix < 2 || radix > 16) {
-        printf("Error: invalid radix\n");
-        return;
-    }
+void display_value_on_displays(int value, int radix)
+{
+	if (radix < 2 || radix > 16) {
+		logMessage(WARNING, "invalid radix\n");
+		return;
+	}
 
-    if (value < 0) {
-        printf("The value must be positive\n");
-        return;
-    }
+	if (value < 0) {
+		logMessage(WARNING, "The value must be positive\n");
+		return;
+	}
 
-    int num_digits = (int)ceil(log(value + 1) / log(radix));
-    for (int i = 0; i < NUM_HEX_DISPLAY; i++) {
-        if (value / radix == 0 && i >= num_digits) {
-            clear_hex(i);
-            continue;
-        }
-        int digit = value % radix;
-        if (value > 0 || i < num_digits) {
-            display_digit(digit, i);
-        } else {
-            clear_hex(i);
-        }
-        value /= radix;
-    }
-
+	int num_digits = (int)ceil(log(value + 1) / log(radix));
+	for (int i = 0; i < NUM_HEX_DISPLAY; i++) {
+		if (value / radix == 0 && i >= num_digits) {
+			clear_hex(i);
+			continue;
+		}
+		int digit = value % radix;
+		if (value > 0 || i < num_digits) {
+			display_digit(digit, i);
+		} else {
+			clear_hex(i);
+		}
+		value /= radix;
+	}
 }

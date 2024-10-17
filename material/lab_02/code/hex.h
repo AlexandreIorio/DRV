@@ -10,7 +10,7 @@
 #define NUM_HEX_DISPLAY 6
 #define TEST_HW 1
 
-struct {
+static struct {
 	volatile uint32_t *reg_0_3;
 	volatile uint32_t *reg_4_5;
 } hex_ctl;

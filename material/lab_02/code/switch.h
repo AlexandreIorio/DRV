@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 
-struct {
+static struct {
   volatile uint32_t *reg;
 } switch_ctl;
 

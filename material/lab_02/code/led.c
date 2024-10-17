@@ -1,11 +1,13 @@
 #include "led.h"
 #include <stdbool.h>
 #include <stdlib.h>
+#include "logger.h"
 
 void led_up(uint8_t led_index)
 {
+    logMessage(DEBUG, "Turning on led %d\n", led_index);
 	if (!led_ctl.reg) {
-		printf("Led %d cannot be turned on because leds register not initialized\n",
+		logMessage(WARNING, "Led %d cannot be turned on because leds register not initialized\n",
 		       led_index);
 		return;
 	}
@@ -14,8 +16,9 @@ void led_up(uint8_t led_index)
 
 void led_down(uint8_t led_index)
 {
+    logMessage(DEBUG, "Turning off led %d\n", led_index);
 	if (!led_ctl.reg) {
-		printf("Led %d cannot be turned off because leds register not initialized\n",
+		logMessage(WARNING, "Led %d cannot be turned on because leds register not initialized\n",
 		       led_index);
 		return;
 	}
@@ -24,13 +27,14 @@ void led_down(uint8_t led_index)
 
 int init_led(volatile uint32_t *led_register)
 {
-	printf("Initializing leds\n");
+	logMessage(INFO, "Initializing leds\n");
 	if (!led_register) {
-		printf("Error: leds register must be a valid address\n");
+		logMessage(ERROR, "Error: leds register must be a valid address\n");
 		return -1;
 	}
 	led_ctl.reg = led_register;
 #if TEST_HW
+    logMessage(INFO, "Testing leds enabled\n");
 	test_led();
 #endif
 	return 0;
@@ -38,13 +42,14 @@ int init_led(volatile uint32_t *led_register)
 
 void test_led(void)
 {
-	printf("Testing leds\n");
+	logMessage(INFO, "Testing leds\n");
 	if (!led_ctl.reg) {
-		printf("Leds cannot be tested because leds register not initialized\n");
+		logMessage(WARNING, "Leds cannot be tested because leds register not initialized\n");
 		return;
 	}
-
+    logMessage(DEBUG, "Clearing leds\n");
 	clear_leds();
+    logMessage(DEBUG, "Turning on all leds\n");
 	int speed_us = 50000;
 	bool left_direction = true;
 
@@ -70,8 +75,9 @@ void test_led(void)
 
 void clear_leds(void)
 {
+    logMessage(DEBUG, "Clearing leds\n");
 	if (!led_ctl.reg) {
-		printf("Leds cannot be cleared because leds register not initialized\n");
+		logMessage(WARNING, "Leds cannot be cleared because leds register not initialized\n");
 		return;
 	}
 	*led_ctl.reg = 0x00000000;
@@ -80,7 +86,7 @@ void clear_leds(void)
 void all_leds_on(void)
 {
 	if (!led_ctl.reg) {
-		printf("Leds cannot be turned on because leds register not initialized\n");
+		logMessage(WARNING, "Leds cannot be cleared because leds register not initialized\n");
 		return;
 	}
 	*led_ctl.reg = 0x000003FF;

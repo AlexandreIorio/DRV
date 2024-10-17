@@ -1,9 +1,10 @@
 #include "switch.h"
+#include "logger.h"
 
 void init_switch(volatile uint32_t *button_register){
-    printf("Initializing switch\n");
+    logMessage(INFO, "Initializing switch\n");
     if (!button_register) {
-        printf("Error: switch register must be a valid address\n");
+        logMessage(WARNING, "switch register must be a valid address\n");
         return;
     }
     switch_ctl.reg = button_register;
@@ -11,11 +12,11 @@ void init_switch(volatile uint32_t *button_register){
 
 int read_value(uint8_t switch_index) {
     if (!switch_ctl.reg) {
-        printf("Error: switch register not initialized\n");
+        logMessage(ERROR, "Error: switch register not initialized\n");
         return -1;
     }
     if (switch_index > 9) {
-        printf("Error: invalid switch index\n");
+        logMessage(ERROR, "Error: invalid switch index\n");
         return -1;
     }
 
@@ -25,7 +26,7 @@ int read_value(uint8_t switch_index) {
 
 uint16_t read_all_switches() {
     if (!switch_ctl.reg) {
-        printf("Error: switch register not initialized\n");
+        logMessage(ERROR, "Error: switch register not initialized\n");
         return -1;
     }
 
