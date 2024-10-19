@@ -1,5 +1,5 @@
 #include "hex.h"
-#include <math.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include "logger.h"
 
@@ -156,6 +156,12 @@ void display_decimal_number(int number)
 
 void display_value_on_displays(int value, int radix)
 {
+    value = abs(value);
+    if (value == 0) {
+        clear_all_hex();
+        display_digit(0, 0);
+        return;
+    }
 	if (radix < 2 || radix > 16) {
 		logMessage(WARNING, "invalid radix\n");
 		return;

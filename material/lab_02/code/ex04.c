@@ -30,15 +30,17 @@
 
 /*Masks*/
 #define BUTTON_MASK 0xF
+#define SWITCH_MASK 0x3FF
+#define SWITCH_SIGN_MASK 0x200
+#define SWITCH_VALUE_MASK ~SWITCH_SIGN_MASK &SWITCH_MASK
 
-#define LONG_PRESS_DURATION 1500
-#define DELAY_US 100000
+/* Constants */
 
+#define SIGN_LED 9
 #define MAX_VALUE 999999
 
 static struct {
 	volatile uint32_t *base_addr;
-	;
 	int page_size;
 	int uio_fd;
 	int value;
@@ -55,6 +57,22 @@ int initialize();
 /// @brief Method to process the system
 void process();
 
+/// @brief Method to add the value of the switches
+/// @param value The value to add
+void add(int value);
+
+/// @brief Method to substract the value of the switches
+/// @param value The value to substract
+void sub(int value);
+
+/// @brief Method to multiply the value of the switches
+/// @param value The value to multiply
+void mult(int value);
+
+/// @brief Method to divide the value of the switches
+/// @param value The value to divide
+void divi(int value);
+
 /// @brief Method to finish the system
 void finish();
 
@@ -63,8 +81,7 @@ bool running = true; // Variable qui contrôle la boucle while
 // Important: this function ensures the program exits properly and closes the mem fd
 void handle_sigint(int sig)
 {
-	logMessage(INFO,
-		   "Interrupt signal caught\nProgram will now exit properly\n");
+	printf("Interrupt signal caught\nProgram will now exit properly when the thread will be released\n");
 	running = false;
 }
 
@@ -100,18 +117,19 @@ int main(int argc, char *argv[])
 	printf("---------------------------------\n");
 	printf("Welcome to the switch accumulator program\n");
 	printf("---------------------------------\n\n");
-	printf("Press KEY0 to add the value of the switches and KEY1 to reset the accumulator\n");
-	printf("Press and hold KEY0 to add value of the switches faster\n");
-	printf("Press CTRL+C to exit properly\n\n");
-	printf("---------------------------------\n\n");
-
+	printf("Press KEY0 to add the value of the switches to the accumulator\n");
+    printf("Press KEY1 to substract the value of the switches to the accumulator\n");
+    printf("Press KEY2 to multiply the value of the switches to the accumulator\n");
+    printf("Press KEY3 to divide the value of the switches to the accumulator\n");
+    printf("Press KEY0 and KEY3 or CTRL+C to exit the program properly \n");
+	printf("\n---------------------------------\n\n");
 
 	while (running) {
 		uint32_t info = 1;
 
 		size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
 		if (nb != (ssize_t)sizeof(info)) {
-			perror("write");
+			logMessage(ERROR, "Cannot write to UIO device\n");
 			close(counter_ctl.uio_fd);
 			exit(EXIT_FAILURE);
 		}
@@ -122,7 +140,7 @@ int main(int argc, char *argv[])
 		if (nb == (ssize_t)sizeof(info)) {
 			/* Do something in response to the interrupt. */
 			logMessage(DEBUG, "Interrupt #%u!\n", info);
-            process();
+			process();
 			button_clear_interrupts(BUTTON_MASK);
 		}
 	}
@@ -141,8 +159,8 @@ int initialize()
 {
 	logMessage(INFO, "Initialization started\n");
 
-    // Initialize the control structure
-    counter_ctl.value = 0;
+	// Initialize the control structure
+	counter_ctl.value = 0;
 
 	counter_ctl.uio_fd = open(UIO_DEVICE, O_RDWR);
 	logMessage(DEBUG, "Opening UIO device file descriptor\n");
@@ -194,44 +212,106 @@ int initialize()
 	init_hex(hex_reg_0_3, hex_reg_4_5);
 
 	button_enable_interrupts(BUTTON_MASK);
+
+	// initialize the display to 0
+	display_digit(0, 0);
+
 	logMessage(INFO, "Initialization completed\n");
 	return 0;
 }
 
 void process()
 {
-    uint8_t pressed_btn_mask = button_status_interrupts(0x3);
-    logMessage(DEBUG, "Pressed button mask: %d\n", pressed_btn_mask);
-	int btn0 = pressed_btn_mask & 0x1;
-	int btn1 = pressed_btn_mask & 0x2;
+	uint8_t pressed_btn_mask = button_status_interrupts(0xf);
+	logMessage(DEBUG, "Pressed button mask: %d\n", pressed_btn_mask);
+	uint16_t switches = read_all_switches();
+	int value;
 
-	if (btn0 == -1 || btn1 == -1) {
-		logMessage(ERROR, "Error: cannot read button\n");
+	// define the value of the switches
+	if (switches & SWITCH_SIGN_MASK) {
+		value = ~(switches & SWITCH_VALUE_MASK) + 1;
+	} else {
+		value = switches & SWITCH_VALUE_MASK;
 	}
 
-	if (btn0) {
-		if (counter_ctl.value < MAX_VALUE) {
-			counter_ctl.value  += read_all_switches();
-			if (counter_ctl.value > MAX_VALUE) {
-				counter_ctl.value = MAX_VALUE;
-			}
-			display_value_on_displays(counter_ctl.value, 10);
+	switch (pressed_btn_mask) {
+	case 1:
+		add(value);
+		break;
+	case 2:
+		sub(value);
+		break;
+	case 4:
+		mult(value);
+		break;
+
+	case 8:
+		divi(value);
+		break;
+
+	case 9:
+		running = false;
+		return;
+
+	default:
+		logMessage(DEBUG, " pressed button not in switch case\n");
+		break;
+	}
+
+	// Check if the value is within the limits
+	if (abs(counter_ctl.value) > MAX_VALUE) {
+		logMessage(DEBUG, "Limit reached\n");
+		if (counter_ctl.value > 0) {
+			counter_ctl.value = MAX_VALUE;
+		} else {
+			counter_ctl.value = ~MAX_VALUE + 1;
 		}
-	} else if (btn1) {
-		counter_ctl.value = 0;
-		display_value_on_displays(counter_ctl.value, 10);
 	}
 
-	if (counter_ctl.value == MAX_VALUE) {
-		led_up(0);
+	// Update the sign LED
+	if (counter_ctl.value < 0) {
+		led_up(SIGN_LED);
+	} else {
+		led_down(SIGN_LED);
 	}
+    logMessage(INFO, "Value: %d\n", counter_ctl.value);
+	display_value_on_displays(counter_ctl.value, 10);
+}
+
+void add(int value)
+{
+    logMessage(INFO, "Adding %d to the accumulator\n", value);
+	counter_ctl.value += value;
+}
+
+void sub(int value)
+{
+    logMessage(INFO, "Substracting %d to the accumulator\n", value);
+	counter_ctl.value -= value;
+}
+
+void mult(int value)
+{
+    logMessage(INFO, "Multiplying the accumulator by %d\n", value);
+	counter_ctl.value *= value;
+}
+
+void divi(int value)
+{
+    logMessage(INFO, "Dividing the accumulator by %d\n", value);
+	if (value == 0) {
+		logMessage(WARNING,
+			   "Error: division by zero can be dangerous\n");
+		return;
+	}
+	counter_ctl.value /= value;
 }
 
 void finish()
 {
 	clear();
 	logMessage(DEBUG, "Unmapping memory\n");
-	munmap((uint32_t *)counter_ctl.base_addr, MAP_SIZE);
+	munmap((uint32_t *)counter_ctl.base_addr, 0);
 	logMessage(DEBUG, "Closing memory file descriptor\n");
 	close(counter_ctl.uio_fd);
 	logMessage(INFO, "Program finished\n");

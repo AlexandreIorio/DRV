@@ -9,7 +9,7 @@
 static struct {
     LogLevel currentLogLevel;
     bool logToConsole;
-} logger_ctl;
+} logger_ctl = {ERROR, false};
 
 const char* logLevelToString(LogLevel level) {
     switch (level) {
