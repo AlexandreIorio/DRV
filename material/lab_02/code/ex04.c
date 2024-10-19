@@ -25,6 +25,11 @@
 #define LED_OFFSET 0x00
 #define HEX_OFFSET_0_3 0x20
 #define HEX_OFFSET_4_5 0x30
+#define IRQ_ENABLE_OFFSET 0x8
+#define IRQ_STATUS_OFFSET 0xC
+
+/*Masks*/
+#define BUTTON_MASK 0xF
 
 #define LONG_PRESS_DURATION 1500
 #define DELAY_US 100000
@@ -32,9 +37,12 @@
 #define MAX_VALUE 999999
 
 static struct {
-	volatile uint8_t *base_addr;
+	volatile uint32_t *base_addr;
+	;
 	int page_size;
 	int uio_fd;
+	int value;
+
 } counter_ctl;
 
 /// @brief Method to clear the hex display and the leds
@@ -43,6 +51,9 @@ void clear();
 /// @brief Method to initialize the system
 /// @return 0 if the initialization is successful, -1 otherwise
 int initialize();
+
+/// @brief Method to process the system
+void process();
 
 /// @brief Method to finish the system
 void finish();
@@ -94,65 +105,26 @@ int main(int argc, char *argv[])
 	printf("Press CTRL+C to exit properly\n\n");
 	printf("---------------------------------\n\n");
 
-	bool isPressed = false;
-	int value = 0;
 
 	while (running) {
+		uint32_t info = 1;
 
-        uint32_t info = 1;
+		size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
+		if (nb != (ssize_t)sizeof(info)) {
+			perror("write");
+			close(counter_ctl.uio_fd);
+			exit(EXIT_FAILURE);
+		}
 
-        size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
-        if (nb != (ssize_t)sizeof(info)) {
-            perror("write");
-            close(counter_ctl.uio_fd);
-            exit(EXIT_FAILURE);
-        }
-
-        /* Wait for interrupt */
-        logMessage(DEBUG,"Waiting for interrupt...\n");
-        nb = read(counter_ctl.uio_fd, &info, sizeof(info));
-        if (nb == (ssize_t)sizeof(info)) {
-            /* Do something in response to the interrupt. */
-            logMessage(DEBUG,"Interrupt #%u!\n", info);
-        }
-
-		// int btn0 = read_button(0);
-		// int btn1 = read_button(1);
-
-		// if (btn0 == -1 || btn1 == -1) {
-		// 	logMessage(ERROR, "Error: cannot read button\n");
-		// }
-
-		// if ((btn0 && !isPressed) ||
-		//     (long_press(0, LONG_PRESS_DURATION) == 0)) {
-		// 	if (value < MAX_VALUE) {
-		// 		value += read_all_switches();
-		// 		if (value > MAX_VALUE) {
-		// 			value = MAX_VALUE;
-		// 		}
-		// 		isPressed = true;
-		// 		display_value_on_displays(value, 10);
-		// 	}
-		// } else if (btn1 && !isPressed) {
-		// 	value = 0;
-		// 	isPressed = true;
-		// 	display_value_on_displays(value, 10);
-		// }
-
-		// if (!(btn0 || btn1)) {
-		// 	isPressed = false;
-		// }
-
-		// if (value == MAX_VALUE) {
-		// 	led_up(0);
-		// }
-
-		// // Compute the delay if a button is long pressed
-		// long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
-		// 	      long_press(1, LONG_PRESS_DURATION) == 0) ?
-		// 		     LONG_PRESS_DURATION :
-		// 		     DELAY_US;
-		// usleep(delay);
+		/* Wait for interrupt */
+		logMessage(DEBUG, "Waiting for interrupt...\n");
+		nb = read(counter_ctl.uio_fd, &info, sizeof(info));
+		if (nb == (ssize_t)sizeof(info)) {
+			/* Do something in response to the interrupt. */
+			logMessage(DEBUG, "Interrupt #%u!\n", info);
+            process();
+			button_clear_interrupts(BUTTON_MASK);
+		}
 	}
 
 	finish();
@@ -169,13 +141,15 @@ int initialize()
 {
 	logMessage(INFO, "Initialization started\n");
 
+    // Initialize the control structure
+    counter_ctl.value = 0;
+
 	counter_ctl.uio_fd = open(UIO_DEVICE, O_RDWR);
 	logMessage(DEBUG, "Opening UIO device file descriptor\n");
 	if (counter_ctl.uio_fd == -1) {
 		logMessage(ERROR, "Error: cannot open UIO device");
 		return -1;
 	}
-
 	logMessage(DEBUG, "Memory file descriptor opened\n");
 
 	counter_ctl.page_size = sysconf(_SC_PAGESIZE);
@@ -186,32 +160,78 @@ int initialize()
 
 	logMessage(DEBUG, "Mapping memory\n");
 	counter_ctl.base_addr =
-		(uint8_t *)mmap(NULL, MAP_SIZE, PROT_READ | PROT_WRITE,
-				MAP_SHARED, counter_ctl.uio_fd, 0);
+		(uint32_t *)mmap(NULL, MAP_SIZE, PROT_READ | PROT_WRITE,
+				 MAP_SHARED, counter_ctl.uio_fd, 0);
 	if (counter_ctl.base_addr == MAP_FAILED) {
 		logMessage(ERROR, "Error: memory mapping failed");
 		close(counter_ctl.uio_fd);
 		return -1;
 	}
-	logMessage(DEBUG, "Memory mapped\n");
+	logMessage(DEBUG, "Memory mapped to base address %p\n",
+		   counter_ctl.base_addr);
 
 	volatile uint32_t *btn_reg =
-		(volatile uint32_t *)(counter_ctl.base_addr + BUTTON_OFFSET);
-	volatile uint32_t *hex_reg_0_3 =
-		(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_0_3);
-	volatile uint32_t *hex_reg_4_5 =
-		(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_4_5);
-	volatile uint32_t *led_reg =
-		(volatile uint32_t *)(counter_ctl.base_addr + LED_OFFSET);
-	volatile uint32_t *switch_reg =
-		(volatile uint32_t *)(counter_ctl.base_addr + SWITCH_OFFSET);
+		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
+				      BUTTON_OFFSET);
 
+	volatile uint32_t *hex_reg_0_3 =
+		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
+				      HEX_OFFSET_0_3);
+	volatile uint32_t *hex_reg_4_5 =
+
+		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
+				      HEX_OFFSET_4_5);
+	volatile uint32_t *led_reg =
+		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
+				      LED_OFFSET);
+	volatile uint32_t *switch_reg =
+		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
+				      SWITCH_OFFSET);
+
+	logMessage(DEBUG, "led_reg: %p\n", led_reg);
+	logMessage(DEBUG, "hex_reg_0_3: %p\n", hex_reg_0_3);
+	logMessage(DEBUG, "hex_reg_4_5: %p\n", hex_reg_4_5);
+	logMessage(DEBUG, "btn_reg: %p\n", btn_reg);
+	logMessage(DEBUG, "switch_reg: %p\n", switch_reg);
+
+	init_button(btn_reg);
+	button_enable_interrupts(BUTTON_MASK);
+
+	init_switch(switch_reg);
 	init_led(led_reg);
 	init_hex(hex_reg_0_3, hex_reg_4_5);
-	init_button(btn_reg);
-	init_switch(switch_reg);
+
 	logMessage(INFO, "Initialization completed\n");
 	return 0;
+}
+
+void process()
+{
+    uint8_t pressed_btn_mask = button_status_interrupts(0x3);
+    logMessage(DEBUG, "Pressed button mask: %d\n", pressed_btn_mask);
+	int btn0 = pressed_btn_mask & 0x1;
+	int btn1 = pressed_btn_mask & 0x2;
+
+	if (btn0 == -1 || btn1 == -1) {
+		logMessage(ERROR, "Error: cannot read button\n");
+	}
+
+	if (btn0) {
+		if (counter_ctl.value < MAX_VALUE) {
+			counter_ctl.value  += read_all_switches();
+			if (counter_ctl.value > MAX_VALUE) {
+				counter_ctl.value = MAX_VALUE;
+			}
+			display_value_on_displays(counter_ctl.value, 10);
+		}
+	} else if (btn1) {
+		counter_ctl.value = 0;
+		display_value_on_displays(counter_ctl.value, 10);
+	}
+
+	if (counter_ctl.value == MAX_VALUE) {
+		led_up(0);
+	}
 }
 
 void finish()

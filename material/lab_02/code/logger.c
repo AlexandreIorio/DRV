@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include "logger.h"
 
 // control structure for the logger

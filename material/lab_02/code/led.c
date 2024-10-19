@@ -31,7 +31,7 @@ void led_down(uint8_t led_index)
 
 int init_led(volatile uint32_t *led_register)
 {
-	logMessage(INFO, "Initializing leds\n");
+	logMessage(INFO, "Initializing leds at address %p\n", led_register);
 	if (!led_register) {
 		logMessage(ERROR, "Error: leds register must be a valid address\n");
 		return -1;
