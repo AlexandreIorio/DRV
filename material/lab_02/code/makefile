@@ -1,5 +1,5 @@
 # Name of the program (can be passed as an argument)
-TARGET = ex03
+TARGET = ex04
 
 # Cross-compiler
 CC = arm-linux-gnueabihf-gcc-6.4.1

@@ -64,6 +64,7 @@ void logMessage(LogLevel level, const char* format, ...) {
 
 void setLogLevel(LogLevel level) {
     logger_ctl.currentLogLevel = level;
+    printf("Log level set to %s for pid n°: [%d]\n", logLevelToString(level), getpid());
 }
 
 void enableConsoleLogging(bool enable) {
