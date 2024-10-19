@@ -1,6 +1,10 @@
 #include "switch.h"
 #include "logger.h"
 
+static struct {
+  volatile uint32_t *reg;
+} switch_ctl;
+
 void init_switch(volatile uint32_t *button_register){
     logMessage(INFO, "Initializing switch\n");
     if (!button_register) {

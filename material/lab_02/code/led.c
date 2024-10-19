@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include "logger.h"
 
+static struct {
+	volatile uint32_t *reg;
+} led_ctl;
+
 void led_up(uint8_t led_index)
 {
     logMessage(DEBUG, "Turning on led %d\n", led_index);

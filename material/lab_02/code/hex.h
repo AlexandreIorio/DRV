@@ -10,24 +10,6 @@
 #define NUM_HEX_DISPLAY 6
 #define TEST_HW 1
 
-static struct {
-	volatile uint32_t *reg_0_3;
-	volatile uint32_t *reg_4_5;
-} hex_ctl;
-
-static const uint8_t DEC_TO_HEX[] = {
-	0x3F, // 0
-	0x06, // 1
-	0x5B, // 2
-	0x4F, // 3
-	0x66, // 4
-	0x6D, // 5
-	0x7D, // 6
-	0x07, // 7
-	0x7F, // 8
-	0x6F, // 9
-};
-
 /// @brief Initialize the hex display
 /// @param hex_register_0_3 the register for the first 4 hex display
 /// @param hex_register_4_5 the register for the last 2 hex display

@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include "logger.h"
 
+// control structure for the logger
+static struct {
+    LogLevel currentLogLevel;
+    bool logToConsole;
+} logger_ctl;
 
 const char* logLevelToString(LogLevel level) {
     switch (level) {

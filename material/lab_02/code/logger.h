@@ -13,13 +13,6 @@
 // Log levels
 typedef enum { DEBUG, INFO, WARNING, ERROR } LogLevel;
 
-// control structure for the logger
-static struct {
-    LogLevel currentLogLevel;
-    bool logToConsole;
-} logger_ctl;
-
-
 /// @brief Method to convert a log level to a string
 const char* logLevelToString(LogLevel level);
 

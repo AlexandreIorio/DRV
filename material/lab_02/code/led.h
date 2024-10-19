@@ -9,10 +9,6 @@
 #define NUM_LEDS 10
 #define TEST_HW 1
 
-static struct {
-	volatile uint32_t *reg;
-} led_ctl;
-
 /// @brief Method to turn on the LED
 /// @param led_index The index of the LED to turn on
 void led_up(uint8_t led_index);

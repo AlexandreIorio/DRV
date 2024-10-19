@@ -5,10 +5,6 @@
 #include <sys/time.h>
 #include <stdio.h>
 
-static struct {
-  volatile uint32_t *reg;
-} switch_ctl;
-
 /// @brief Method to initialize the button
 /// @param button_register
 void init_switch(volatile uint32_t *button_register);

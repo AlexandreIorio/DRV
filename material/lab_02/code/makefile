@@ -1,11 +1,11 @@
 # Name of the program (can be passed as an argument)
-TARGET = ex1
+TARGET = ex03
 
 # Cross-compiler
 CC = arm-linux-gnueabihf-gcc-6.4.1
 
 # Source files
-SRCS = *.c
+SRCS = $(TARGET).c hex.c led.c logger.c switch.c button.c
 
 # Compilation flags
 CFLAGS = -Wall
