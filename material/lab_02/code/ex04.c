@@ -188,19 +188,12 @@ int initialize()
 		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
 				      SWITCH_OFFSET);
 
-	logMessage(DEBUG, "led_reg: %p\n", led_reg);
-	logMessage(DEBUG, "hex_reg_0_3: %p\n", hex_reg_0_3);
-	logMessage(DEBUG, "hex_reg_4_5: %p\n", hex_reg_4_5);
-	logMessage(DEBUG, "btn_reg: %p\n", btn_reg);
-	logMessage(DEBUG, "switch_reg: %p\n", switch_reg);
-
 	init_button(btn_reg);
-	button_enable_interrupts(BUTTON_MASK);
-
 	init_switch(switch_reg);
 	init_led(led_reg);
 	init_hex(hex_reg_0_3, hex_reg_4_5);
 
+	button_enable_interrupts(BUTTON_MASK);
 	logMessage(INFO, "Initialization completed\n");
 	return 0;
 }
