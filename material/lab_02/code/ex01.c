@@ -1,10 +1,10 @@
+#include <fcntl.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
-#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -12,8 +12,8 @@
 #include "button.h"
 #include "hex.h"
 #include "led.h"
-#include "switch.h"
 #include "logger.h"
+#include "switch.h"
 
 #define BASE_ADDR 0xFF200000
 /*Register*/
@@ -29,9 +29,9 @@
 #define MAX_VALUE 999999
 
 static struct {
-	volatile uint8_t *base_addr;
-	long page_size;
-	int mem_fd;
+  volatile uint32_t *base_addr;
+  long page_size;
+  int mem_fd;
 } counter_ctl;
 
 /// @brief Method to clear the hex display and the leds
@@ -48,166 +48,167 @@ bool running = true; // Variable qui contrôle la boucle while
 
 // Important: thanks to this function, the program will exit properly and the
 // mem fd will be closed
-void handle_sigint(int sig)
-{
-	logMessage(INFO,"\nInterrupt signal caught\nProgram will now exit properly\n");
-	running = false;
+void handle_sigint(int sig) {
+  logMessage(INFO,
+             "\nInterrupt signal caught\nProgram will now exit properly\n");
+  running = false;
 }
 
-int main(int argc, char *argv[])
-{
-    if (argc == 3 && strcmp(argv[1], "--verbosity") == 0) {
-        if (strcmp(argv[2], "DEBUG") == 0) {
-            setLogLevel(DEBUG);
-        } else if (strcmp(argv[2], "INFO") == 0) {
-            setLogLevel(INFO);
-        } else if (strcmp(argv[2], "WARNING") == 0) {
-            setLogLevel(WARNING);
-        } else if (strcmp(argv[2], "ERROR") == 0) {
-            setLogLevel(ERROR);
-        } else {
-            logMessage(ERROR, "Invalid log level\n");
-            return EXIT_FAILURE;
-        }
-        enableConsoleLogging(true);
+int main(int argc, char *argv[]) {
+  if (argc == 3 && strcmp(argv[1], "--verbosity") == 0) {
+    if (strcmp(argv[2], "DEBUG") == 0) {
+      setLogLevel(DEBUG);
+    } else if (strcmp(argv[2], "INFO") == 0) {
+      setLogLevel(INFO);
+    } else if (strcmp(argv[2], "WARNING") == 0) {
+      setLogLevel(WARNING);
+    } else if (strcmp(argv[2], "ERROR") == 0) {
+      setLogLevel(ERROR);
+    } else {
+      logMessage(ERROR, "Invalid log level\n");
+      return EXIT_FAILURE;
+    }
+    enableConsoleLogging(true);
+  }
+
+  /*Map the signal SIGINT to the function handle_sigint*/
+  signal(SIGINT, handle_sigint);
+
+  logMessage(DEBUG, "Program started\n");
+
+  if (initialize() == -1) {
+    logMessage(INFO, "Error: initialization failed\n");
+    return EXIT_FAILURE;
+  }
+  system("clear");
+
+  printf("---------------------------------\n");
+  printf("Welcome to the switch accumulator program\n");
+  printf("---------------------------------\n\n");
+  printf("Press KEY0 to add the value of the switchs and KEY1 to reset the "
+         "accumulator\n");
+  printf("Press and hold KEY0 to add value of the switchs faster\n");
+  printf("Press CTRL+C to exit properly\n\n");
+  printf("---------------------------------\n\n");
+
+  bool isPressed = false;
+
+  int value = 0;
+
+  while (running) {
+    int btn0 = read_button(0);
+    int btn1 = read_button(1);
+
+    if (btn0 == -1 || btn1 == -1) {
+      logMessage(ERROR, "Error: cannot read button\n");
     }
 
-	/*Map the signal SIGINT to the function handle_sigint*/
-	signal(SIGINT, handle_sigint);
-    
-    logMessage(DEBUG, "Program started\n");
+    if ((btn0 && !isPressed) || (long_press(0, LONG_PRESS_DURATION) == 0)) {
+      if (value < MAX_VALUE) {
+        value += read_all_switches();
+        if (value > MAX_VALUE) {
+          value = MAX_VALUE;
+        }
+        isPressed = true;
+        display_value_on_displays(value, 10);
+      }
+    } else if (btn1 && !isPressed) {
+      value = 0;
+      isPressed = true;
+      display_value_on_displays(value, 10);
+    }
 
-	if (initialize() == -1) {
-		logMessage(INFO, "Error: initialization failed\n");
-		return EXIT_FAILURE;
-	}
-	system("clear");
-    
-	printf("---------------------------------\n");
-	printf("Welcome to the switch accumulator program\n");
-	printf("---------------------------------\n\n");
-	printf("Press KEY0 to add the value of the switchs and KEY1 to reset the accumulator\n");
-	printf("Press and hold KEY0 to add value of the switchs faster\n");
-	printf("Press CTRL+C to exit properly\n\n");
-	printf("---------------------------------\n\n");
+    if (!(btn0 || btn1)) {
+      isPressed = false;
+    }
 
-	bool isPressed = false;
+    if (value == MAX_VALUE) {
+      led_up(0);
+    }
 
-	int value = 0;
+    // compute the delay if a button is long pressed
+    long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
+                  long_press(1, LONG_PRESS_DURATION) == 0)
+                     ? LONG_PRESS_DURATION
+                     : DELAY_US;
+    usleep(delay);
+  }
 
-	while (running) {
-		int btn0 = read_button(0);
-		int btn1 = read_button(1);
-
-		if (btn0 == -1 || btn1 == -1) {
-			logMessage(ERROR, "Error: cannot read button\n");
-		}
-
-		if ((btn0 && !isPressed) ||
-		    (long_press(0, LONG_PRESS_DURATION) == 0)) {
-			if (value < MAX_VALUE) {
-				value += read_all_switches();
-                if (value > MAX_VALUE) {
-                    value = MAX_VALUE;
-                }
-				isPressed = true;
-				display_value_on_displays(value, 10);
-			}
-		} else if (btn1 && !isPressed) {
-			value = 0;
-			isPressed = true;
-			display_value_on_displays(value, 10);
-		}
-
-		if (!(btn0 || btn1)) {
-			isPressed = false;
-		}
-
-		if (value == MAX_VALUE) {
-			led_up(0);
-		}
-
-		// compute the delay if a button is long pressed
-		long delay = (long_press(0, LONG_PRESS_DURATION) == 0 ||
-			      long_press(1, LONG_PRESS_DURATION) == 0) ?
-				     LONG_PRESS_DURATION :
-				     DELAY_US;
-		usleep(delay);
-	}
-
-	finish();
-	return EXIT_SUCCESS;
+  finish();
+  return EXIT_SUCCESS;
 }
 
-void clear()
-{
-	clear_leds();
-	clear_all_hex();
+void clear() {
+  clear_leds();
+  clear_all_hex();
 }
 
-int initialize()
-{
-    logMessage(INFO, "Initialization started\n");
-    logMessage(DEBUG, "Opening memory file descriptor\n");
-	/*open memory file descriptor*/
-	counter_ctl.mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (counter_ctl.mem_fd == -1) {
-		logMessage(ERROR, "Error: cannot open /dev/mem");
-		return -1;
-	}
-    logMessage(DEBUG, "Memory file descriptor opened\n");
+int initialize() {
+  logMessage(INFO, "Initialization started\n");
+  logMessage(DEBUG, "Opening memory file descriptor\n");
+  /*open memory file descriptor*/
+  counter_ctl.mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+  if (counter_ctl.mem_fd == -1) {
+    logMessage(ERROR, "Error: cannot open /dev/mem");
+    return -1;
+  }
+  logMessage(DEBUG, "Memory file descriptor opened\n");
 
-    logMessage(DEBUG, "Getting page size of system\n");
-	/*get page size of system*/
-	counter_ctl.page_size = sysconf(_SC_PAGESIZE);
-	if (counter_ctl.page_size == -1) {
-		logMessage(ERROR, "Error: cannot get page size");
-		return -1;
-	}
+  logMessage(DEBUG, "Getting page size of system\n");
+  /*get page size of system*/
+  counter_ctl.page_size = sysconf(_SC_PAGESIZE);
+  if (counter_ctl.page_size == -1) {
+    logMessage(ERROR, "Error: cannot get page size");
+    return -1;
+  }
 
-    logMessage(DEBUG, "Mapping memory\n");
-	/*Map /dev/mem to an address at a multiple of the page size on BASE_ADDR*/
-	counter_ctl.base_addr = (uint8_t *)mmap(
-		NULL, counter_ctl.page_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-		counter_ctl.mem_fd, BASE_ADDR & ~(counter_ctl.page_size - 1));
-	if (counter_ctl.base_addr == MAP_FAILED) {
-		logMessage(ERROR, "Error: memory mapping failed");
-		close(counter_ctl.mem_fd);
-		return -1;
-	}
-    logMessage(DEBUG, "Memory mapped\n");
+  logMessage(DEBUG, "Mapping memory\n");
+  /*Map /dev/mem to an address at a multiple of the page size on BASE_ADDR*/
+  counter_ctl.base_addr = (uint32_t *)mmap(
+      NULL, counter_ctl.page_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+      counter_ctl.mem_fd, BASE_ADDR & ~(counter_ctl.page_size - 1));
+  if (counter_ctl.base_addr == MAP_FAILED) {
+    logMessage(ERROR, "Error: memory mapping failed");
+    close(counter_ctl.mem_fd);
+    return -1;
+  }
+  logMessage(DEBUG, "Memory mapped\n");
 
+  logMessage(DEBUG, "Get pointers to the registers\n");
+  /*Get pointers to the registers*/
+  volatile uint32_t *btn_reg =
+      (volatile uint32_t *)((void *)counter_ctl.base_addr + BUTTON_OFFSET);
+  volatile uint32_t *hex_reg_0_3 =
+      (volatile uint32_t *)((void *)counter_ctl.base_addr + HEX_OFFSET_0_3);
+  volatile uint32_t *hex_reg_4_5 =
+      (volatile uint32_t *)((void *)counter_ctl.base_addr + HEX_OFFSET_4_5);
+  volatile uint32_t *led_reg =
+      (volatile uint32_t *)((void *)counter_ctl.base_addr + LED_OFFSET);
+  volatile uint32_t *switch_reg =
+      (volatile uint32_t *)((void *)counter_ctl.base_addr + SWITCH_OFFSET);
 
-    logMessage(DEBUG, "Get pointers to the registers\n");
-	/*Get pointers to the registers*/
-	volatile uint32_t *btn_reg =
-		(volatile uint32_t *)(counter_ctl.base_addr + BUTTON_OFFSET);
-	volatile uint32_t *hex_reg_0_3 =
-		(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_0_3);
-	volatile uint32_t *hex_reg_4_5 =
-		(volatile uint32_t *)(counter_ctl.base_addr + HEX_OFFSET_4_5);
-	volatile uint32_t *led_reg =
-		(volatile uint32_t *)(counter_ctl.base_addr + LED_OFFSET);
-    volatile uint32_t *switch_reg = (volatile uint32_t *)(counter_ctl.base_addr + SWITCH_OFFSET);
+  logMessage(DEBUG, "Initialize the system\n");
+  /*Initialize the system*/
+  init_led(led_reg);
+  init_hex(hex_reg_0_3, hex_reg_4_5);
+  init_button(btn_reg);
+  init_switch(switch_reg);
 
-    logMessage(DEBUG, "Initialize the system\n");
-	/*Initialize the system*/
-	init_led(led_reg);
-	init_hex(hex_reg_0_3, hex_reg_4_5);
-	init_button(btn_reg);
-    init_switch(switch_reg);
-	logMessage(INFO, "Initialization completed\n");
-	return 0;
+  // set initial value to 0
+  clear();
+  display_digit(0, 0);
+
+  logMessage(INFO, "Initialization completed\n");
+  return 0;
 }
 
-void finish()
-{
-	clear();
-	logMessage(DEBUG, "Unmapping memory\n");
-	munmap((uint32_t *)counter_ctl.base_addr, counter_ctl.page_size);
+void finish() {
+  clear();
+  logMessage(DEBUG, "Unmapping memory\n");
+  munmap((uint32_t *)counter_ctl.base_addr, counter_ctl.page_size);
 
-    logMessage(DEBUG, "Closing memory file descriptor\n");
-	close(counter_ctl.mem_fd);
+  logMessage(DEBUG, "Closing memory file descriptor\n");
+  close(counter_ctl.mem_fd);
 
-	logMessage(INFO, "Program finished\n");
+  logMessage(INFO, "Program finished\n");
 }
