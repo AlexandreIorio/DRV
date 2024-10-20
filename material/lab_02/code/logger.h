@@ -28,4 +28,13 @@ void setLogLevel(LogLevel level);
 /// @brief Method to enable or disable console logging
 void enableConsoleLogging(bool enable);
 
+/// @brief This method is used to process the arguments of the program
+/// @param argc the number of arguments
+/// @param argv the vector arguments
+/// @return true if the arguments are processed correctly, false otherwise
+bool logger_process_args(int argc, char* argv[]);
+
+/// @brief This method is used to display the help of the program
+void logger_help_args(const char* programName);
+
 #endif // LOGGER_H

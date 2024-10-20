@@ -76,34 +76,25 @@ void divi(int value);
 /// @brief Method to finish the system
 void finish();
 
-bool running = true; // Variable qui contrôle la boucle while
+/// used to stop the program when it changes to false
+bool running = true;
 
 // Important: this function ensures the program exits properly and closes the mem fd
 void handle_sigint(int sig)
 {
-	printf("Interrupt signal caught\nProgram will now exit properly when the thread will be released\n");
+	printf("Interrupt signal caught\n Press a button to exit properly\n");
 	running = false;
 }
 
 int main(int argc, char *argv[])
 {
-	if (argc == 3 && strcmp(argv[1], "--verbosity") == 0) {
-		if (strcmp(argv[2], "DEBUG") == 0) {
-			setLogLevel(DEBUG);
-		} else if (strcmp(argv[2], "INFO") == 0) {
-			setLogLevel(INFO);
-		} else if (strcmp(argv[2], "WARNING") == 0) {
-			setLogLevel(WARNING);
-		} else if (strcmp(argv[2], "ERROR") == 0) {
-			setLogLevel(ERROR);
-		} else {
-			logMessage(ERROR, "Invalid log level\n");
-			return EXIT_FAILURE;
-		}
-		enableConsoleLogging(true);
-	}
+    bool args_ok = logger_process_args(argc, argv);
+    
+    if (!args_ok) {
+        return EXIT_FAILURE;
+    }
 
-	/* Map the signal SIGINT to the function handle_sigint */
+	// Map the signal SIGINT to the function handle_sigint
 	signal(SIGINT, handle_sigint);
 
 	logMessage(DEBUG, "Program started\n");
@@ -125,8 +116,8 @@ int main(int argc, char *argv[])
 	printf("\n---------------------------------\n\n");
 
 	while (running) {
-		uint32_t info = 1; /*unmask*/
-
+		/* Write 1 to the UIO device to enable interrupts */
+		uint32_t info = 1;
 		size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
 		if (nb != (ssize_t)sizeof(info)) {
 			logMessage(ERROR, "Cannot write to UIO device\n");
@@ -141,7 +132,7 @@ int main(int argc, char *argv[])
 			/* Do something in response to the interrupt. */
 			logMessage(DEBUG, "Interrupt #%u!\n", info);
 			process();
-			button_clear_interrupts(BUTTON_MASK);
+			button_clear_edge_reg_interrupts(BUTTON_MASK);
 		}
 	}
 
@@ -206,14 +197,16 @@ int initialize()
 		(volatile uint32_t *)((uint32_t)counter_ctl.base_addr |
 				      SWITCH_OFFSET);
 
+	// Initialize system components
 	init_button(btn_reg);
 	init_switch(switch_reg);
 	init_led(led_reg);
 	init_hex(hex_reg_0_3, hex_reg_4_5);
 
+	// Enable interrupts
 	button_enable_interrupts(BUTTON_MASK);
 
-	// initialize the display to 0
+	// initialize the hex display to 0
 	display_digit(0, 0);
 
 	logMessage(INFO, "Initialization completed\n");

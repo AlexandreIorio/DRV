@@ -29,7 +29,7 @@ void button_enable_interrupts(uint8_t button_mask);
 
 /// @brief Method to clear the interrupts for the buttons
 /// @param button_mask the mask of the buttons to clear the interrupts
-void button_clear_interrupts(uint8_t button_mask);
+void button_clear_edge_reg_interrupts(uint8_t button_mask);
 
 /// @brief Method to clear the interrupt for a specific button
 /// @param button_index the index of the button to clear the interrupt

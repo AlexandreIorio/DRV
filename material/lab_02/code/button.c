@@ -84,11 +84,11 @@ void button_enable_interrupts(uint8_t button_mask)
         return;
     }
     *button_ctl.irq_mask_reg = button_mask;
-    button_clear_interrupts(button_mask);
+    button_clear_edge_reg_interrupts(button_mask);
     logMessage(DEBUG, "Interrupts buttons enabled at addr %p with mask %x\n", button_ctl.irq_mask_reg, *button_ctl.irq_mask_reg  );
 }
 
-void button_clear_interrupts(uint8_t button_mask)
+void button_clear_edge_reg_interrupts(uint8_t button_mask)
 {
     logMessage(DEBUG, "Clearing buttons interrupts 0x%x\n", button_mask);
     if (!button_ctl.edge_capture_mask_reg) {
