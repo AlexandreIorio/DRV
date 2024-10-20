@@ -118,14 +118,14 @@ int main(int argc, char *argv[])
 	printf("Welcome to the switch accumulator program\n");
 	printf("---------------------------------\n\n");
 	printf("Press KEY0 to add the value of the switches to the accumulator\n");
-    printf("Press KEY1 to substract the value of the switches to the accumulator\n");
-    printf("Press KEY2 to multiply the value of the switches to the accumulator\n");
-    printf("Press KEY3 to divide the value of the switches to the accumulator\n");
-    printf("Press KEY0 and KEY3 or CTRL+C to exit the program properly \n");
+	printf("Press KEY1 to substract the value of the switches to the accumulator\n");
+	printf("Press KEY2 to multiply the value of the switches to the accumulator\n");
+	printf("Press KEY3 to divide the value of the switches to the accumulator\n");
+	printf("Press KEY0 and KEY3 or CTRL+C to exit the program properly \n");
 	printf("\n---------------------------------\n\n");
 
 	while (running) {
-		uint32_t info = 1;
+		uint32_t info = 1; /*unmask*/
 
 		size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
 		if (nb != (ssize_t)sizeof(info)) {
@@ -274,31 +274,31 @@ void process()
 	} else {
 		led_down(SIGN_LED);
 	}
-    logMessage(INFO, "Value: %d\n", counter_ctl.value);
+	logMessage(INFO, "Value: %d\n", counter_ctl.value);
 	display_value_on_displays(counter_ctl.value, 10);
 }
 
 void add(int value)
 {
-    logMessage(INFO, "Adding %d to the accumulator\n", value);
+	logMessage(INFO, "Adding %d to the accumulator\n", value);
 	counter_ctl.value += value;
 }
 
 void sub(int value)
 {
-    logMessage(INFO, "Substracting %d to the accumulator\n", value);
+	logMessage(INFO, "Substracting %d to the accumulator\n", value);
 	counter_ctl.value -= value;
 }
 
 void mult(int value)
 {
-    logMessage(INFO, "Multiplying the accumulator by %d\n", value);
+	logMessage(INFO, "Multiplying the accumulator by %d\n", value);
 	counter_ctl.value *= value;
 }
 
 void divi(int value)
 {
-    logMessage(INFO, "Dividing the accumulator by %d\n", value);
+	logMessage(INFO, "Dividing the accumulator by %d\n", value);
 	if (value == 0) {
 		logMessage(WARNING,
 			   "Error: division by zero can be dangerous\n");
