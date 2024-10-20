@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -83,7 +84,7 @@ bool running = true;
 // Important: this function ensures the program exits properly and closes the
 // mem fd
 void handle_sigint(int sig) {
-  printf("Interrupt signal caught\n Press a button to exit properly\n");
+  printf("Interrupt signal caught\n");
   running = false;
 }
 
@@ -115,11 +116,11 @@ int main(int argc, char *argv[]) {
       "Press KEY2 to multiply the value of the switches to the accumulator\n");
   printf("Press KEY3 to divide the value of the switches to the accumulator\n");
   printf("Press KEY0 and KEY3 or CTRL+C to exit the program properly \n");
-  printf("This program use poll to catch interrupts\n");
+  printf("\nThis version use the select() method to catch interrupts\n");
   printf("\n---------------------------------\n\n");
 
   while (running) {
-    /* Write 1 to the UIO device to enable interrupts */
+    // Write 1 to the UIO device to enable interrupts
     uint32_t info = 1;
     size_t nb = write(counter_ctl.uio_fd, &info, sizeof(info));
     if (nb != (ssize_t)sizeof(info)) {
@@ -127,14 +128,13 @@ int main(int argc, char *argv[]) {
       close(counter_ctl.uio_fd);
       exit(EXIT_FAILURE);
     }
-
-    struct pollfd fds = {
-        .fd = counter_ctl.uio_fd,
-        .events = POLLIN,
-    };
-
-    int ret = poll(&fds, 1, -1);
-    if (ret >= 1) {
+    // configure th set of file descriptors
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(counter_ctl.uio_fd, &fds);
+    /* Wait for an interrupt */
+    int ret = select(counter_ctl.uio_fd + 1, &fds, NULL, NULL, NULL);
+    if (ret > 0 && FD_ISSET(counter_ctl.uio_fd, &fds)) {
       nb = read(counter_ctl.uio_fd, &info, sizeof(info));
       if (nb == (ssize_t)sizeof(info)) {
         logMessage(DEBUG, "Interrupt #%u!\n", info);
@@ -145,9 +145,12 @@ int main(int argc, char *argv[]) {
         close(counter_ctl.uio_fd);
         exit(EXIT_FAILURE);
       }
+    } else {
+      logMessage(ERROR, "select() error or timeout\n");
+      close(counter_ctl.uio_fd);
+      exit(EXIT_FAILURE);
     }
   }
-  finish();
   return EXIT_SUCCESS;
 }
 
