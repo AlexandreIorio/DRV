@@ -19,7 +19,7 @@ Ca permet un accès direct à la mémoire du périphérique qui est bien plus ra
 
 
 
-## Exercice 3
+## Exercice 5
 
 **Il y a au moins 3 façons pour attendre une interruption au moyen de /dev/uio0 (voir dans le tutoriel). Lesquelles ?**
 
