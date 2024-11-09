@@ -14,3 +14,4 @@ material/lab_02/code/ex01
 *.cmd
 *.symvers
 .cache
+compile_commands.json
