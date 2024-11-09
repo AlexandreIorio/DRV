@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+/* The extra [class] is a hack that increases specificity enough to
+   override a similar rule in reveal.js */
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  font-size: inherit;
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Laboratoire n°1</title>
+        <link rel="stylesheet" href="template.css">
+
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script> -->
+        <!-- <script>hljs.highlightAll();</script> -->
+
+        <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"></link> -->
+
+    </head>
+    <body>
+        <img class="logo" src="logo.png"> </div>    
+        <div class="cover">
+            <div class="title">
+                <div class="h1 text-center">Affichage linéaire d’une
+valeur entre deux bornes</div>
+                <div class="h2 text-center">TIC</div>
+                <div class="h2 text-center">unité d’enseignement
+VSE</div>
+            </div>
+            <div class="cover-info">
+                <div class="title-info">
+                    <span>Auteurs: </span> <strong><span>Alexandre
+Iorio</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Professeur: </span> <strong><span>Yann
+Thoma</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Assistant: </span> <strong><span>Clément
+Dieperink</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Salle de laboratoire </span> <strong><span>A07</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Date: </span> <strong><span>26.10.2024</span></strong>
+                </div>
+            </div>
+        </div>
+        <main>
+                        <div class="h2">Table des matières</div>
+            <ul>
+<li><a href="#conditions-de-réalisation"
+id="toc-conditions-de-réalisation">0. Conditions de réalisation</a></li>
+<li><a href="#introduction" id="toc-introduction">1.
+Introduction</a></li>
+<li><a href="#commandes" id="toc-commandes">2. Commandes</a>
+<ul>
+<li><a href="#ordre-des-paramètres-du-script-sim.do"
+id="toc-ordre-des-paramètres-du-script-sim.do">2.1 Ordre des paramètres
+du script <code>sim.do</code></a></li>
+<li><a href="#explications-des-paramètres"
+id="toc-explications-des-paramètres">2.2 Explications des
+paramètres</a></li>
+</ul></li>
+<li><a href="#structure-du-banc-de-test"
+id="toc-structure-du-banc-de-test">3. Structure du banc de test</a>
+<ul>
+<li><a href="#ordonnancements-des-actions"
+id="toc-ordonnancements-des-actions">3.1 Ordonnancements des
+actions</a></li>
+</ul></li>
+<li><a href="#scénarios-de-test" id="toc-scénarios-de-test">4. Scénarios
+de test</a>
+<ul>
+<li><a href="#scénario-de-test-full-random"
+id="toc-scénario-de-test-full-random">4.1 Scénario de test : Full
+Random</a></li>
+<li><a href="#scénario-de-test-boundary"
+id="toc-scénario-de-test-boundary">4.2 Scénario de test :
+Boundary</a></li>
+<li><a href="#scénario-de-test-mode" id="toc-scénario-de-test-mode">4.3
+Scénario de test : Mode</a></li>
+<li><a href="#scénarion-de-test-complet"
+id="toc-scénarion-de-test-complet">4.4 Scénarion de test
+complet</a></li>
+</ul></li>
+<li><a href="#génération-des-réferences"
+id="toc-génération-des-réferences">5. Génération des réferences</a></li>
+<li><a href="#vérification-des-résultats"
+id="toc-vérification-des-résultats">6 Vérification des
+résultats</a></li>
+<li><a href="#gestions-des-erreurs" id="toc-gestions-des-erreurs">7.
+Gestions des erreurs</a></li>
+<li><a href="#gestion-de-la-couverture"
+id="toc-gestion-de-la-couverture">8. gestion de la couverture</a></li>
+<li><a href="#test-dirigé" id="toc-test-dirigé">9. Test dirigé</a></li>
+<li><a href="#conclusion" id="toc-conclusion">9. Conclusion</a></li>
+<li><a href="#références" id="toc-références">10. Références</a></li>
+</ul>       
+            <div style="page-break-after:always;"></div>
+                        <h2 id="conditions-de-réalisation">0. Conditions
+                        de réalisation</h2>
+                        <p>Ce laboratoire a été réalisé en utilisant le
+                        logiciel <code>QuestaSim</code> pour la
+                        simulation et la vérification de composants.</p>
+                        <p>Le logiciel est exécuté dans l’environnement
+                        virtuel <code>Ubuntu 64-bit</code>
+                        <code>reds-2024-02-daring-duck</code> fourni par
+                        la HEIG-VD.</p>
+                        <p>L’attribution des ressources à la machine
+                        virtuelle est la suivante</p>
+                        <ul>
+                        <li>4 CPU</li>
+                        <li>32 GB de RAM</li>
+                        </ul>
+                        <p>Détail de la machine hôte:</p>
+                        <pre><code>OS:         Ubuntu 24.04.1 LTS x86_64
+Host:       Latitude 5520
+Kernel:     6.8.0-47-generic 
+CPU:        11th Gen Intel i7-1185G7 (8) @ 4.800GHz
+Memory:     64032MiB</code></pre>
+                        <p>La durée d’exécution des processus est donc
+                        relative aux performances de la machine hôte et
+                        de l’environnement virtuel.</p>
+                        <h2 id="introduction">1. Introduction</h2>
+                        <p>Dans le cadre de ce laboratoire, nous allons
+                        tester un composant <code>min_max_top</code>
+                        permettant l’affichage linéaire d’une valeur
+                        comprise entre deux bornes <code>Min</code> et
+                        <code>Max</code>. Le but est de simuler et de
+                        valider le bon fonctionnement de ce composant en
+                        utilisant différentes configurations de tests et
+                        en intégrant des paramètres génériques tels que
+                        la taille des valeurs <code>VALSIZE</code> et le
+                        niveau d’erreur <code>ERRNO</code>. Les étapes
+                        incluent la définition de scénarios de tests,
+                        l’automatisation des vérifications, et l’analyse
+                        de la couverture pour garantir la fiabilité du
+                        système testé.</p>
+                        <div class="page-break">
+
+                        </div>
+                        <h2 id="commandes">2. Commandes</h2>
+                        <p>Afin de pouvoir utiliser le
+                        <code>testbench</code> il est nécessaire de
+                        disposer de <code>QuestaSim</code>.</p>
+                        <p>Le script <code>sim.do</code> à disposition
+                        permet de lancer le <code>testbench</code> avec
+                        différentes configurations, à savoir :</p>
+                        <ul>
+                        <li><code>TESTCASE</code> : le numéro du
+                        scénario de test à exécuter</li>
+                        <li><code>VALSIZE</code> : la taille des valeurs
+                        à afficher</li>
+                        <li><code>ERRNO</code> : le niveau d’erreur à
+                        simuler</li>
+                        </ul>
+                        <pre><code>vsim do ../scripts/sim.do all &lt;TESTCASE&gt; &lt;VALSIZE&gt; &lt;ERRNO&gt;</code></pre>
+                        <p>Ci-dessous des exemples de commandes
+                        permettant la compilation ainsi que l’exécution
+                        du <code>testbench</code> avec
+                        <code>TESTCASE</code> = 0, <code>VALSIZE</code>
+                        = 5 et <code>ERRNO</code> = 0.</p>
+                        <p>Pour exécuter le testbench dans l’interface
+                        graphique de <code>QuestaSim</code>, exécuter la
+                        commande suivante :</p>
+                        <pre><code>vsim do ../scripts/sim.do all 0 5 0</code></pre>
+                        <p>pour exécuter le testbench dans le terminal,
+                        exécuter la commande suivante :</p>
+                        <pre><code>vsim -c -do &quot;do ../scripts/sim.do all 0 5 0&quot;</code></pre>
+                        <p>Si aucun argument n’est passé, le script
+                        <code>sim.do</code> exécutera le testbench avec
+                        les paramètres suivants : <code>TESTCASE</code>
+                        = 0, <code>VALSIZE</code> = 4 et
+                        <code>ERRNO</code> = 0.</p>
+                        <p>Pour exécuter dans le terminal, se placer
+                        dans le dossier <code>sim</code> et exécuter la
+                        commande suivante :</p>
+                        <pre><code>vsim -c -do ../scripts/sim.do</code></pre>
+                        <p>Pour exécuter dans l’interface graphique de
+                        <code>Questasim</code> se placer dans le dossier
+                        <code>sim</code> et exécuter la commande
+                        suivante :</p>
+                        <pre><code>vsim do ../scripts/sim.do</code></pre>
+                        <p>Afin de lancer une serie de tests, il est
+                        possible d’utiliser la commande suivante :</p>
+                        <pre><code>vrun directed</code></pre>
+                        <p>Pour utiliser l’interface graphique on peut
+                        utiliser la commande suivante :</p>
+                        <pre><code>vrun -gui directed</code></pre>
+                        <h3
+                        id="ordre-des-paramètres-du-script-sim.do">2.1
+                        Ordre des paramètres du script
+                        <code>sim.do</code></h3>
+                        <p>l’exécution du script <code>sim.do</code>
+                        avec la configuration mentionnée ci-dessus
+                        exécutera la commande <code>do_all</code> dont
+                        la l’implémentation est la suivante :</p>
+                        <div class="sourceCode" id="cb9"><pre
+                        class="sourceCode tcl"><code class="sourceCode tcl"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">proc</span> do_all <span class="kw">{</span>TESTCASE VALSIZE ERRNO<span class="kw">}</span> <span class="kw">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  compile_duv</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  compile_tb</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  sim_start <span class="dt">$TESTCASE</span> <span class="dt">$VALSIZE</span> <span class="dt">$ERRNO</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">}</span></span></code></pre></div>
+                        <h3 id="explications-des-paramètres">2.2
+                        Explications des paramètres</h3>
+                        <h4 id="testcase">2.1.1
+                        <code>TESTCASE</code></h4>
+                        <p><code>TESTCASE</code> est un entier qui
+                        définit le scénario de test à exécuter. Il est
+                        compris entre 0 et 3. Chaque scénario de test
+                        est défini au chapitre 4 et permet de tester une
+                        configuration spécifique du composant. Le
+                        testcase 0 est un test de base qui exécutera la
+                        totalité des scénarios de test.</p>
+                        <h4 id="valsize">2.1.2 <code>VALSIZE</code></h4>
+                        <p><code>VALSIZE</code> est un entier qui
+                        définit la taille en <code>bit</code> des
+                        valeurs à afficher. Cette valeur débute à
+                        <code>2</code>.</p>
+                        <p>Une valeur supérieure à <code>26</code> bits
+                        n’est pas valide et créera une erreur de type
+                        <code>Troube with Simulation Kernel</code>.
+                        Quant à une valeur inférieur à <code>2</code>
+                        bits, elle créera des erreurs d’index au lors de
+                        la compilation du DUV.</p>
+                        <pre><code>** Error: ../src_vhdl/min_max_top.vhd(17): (vopt-1152) Index value 2 is out of index range 1 downto 0 of ieee.std_logic_1164.STD_LOGIC_VECTOR.
+** Error: (vopt-2064) Compiler back-end code generation process terminated with code 2.</code></pre>
+                        <p><em>Note, le module <code>min_max_top</code>
+                        étant obfuscé, il est impossible de déterminer
+                        la taille des valeurs à afficher. Il est donc
+                        recommandé de ne pas dépasser la valeur de
+                        <code>24</code> bits.</em></p>
+                        <p>Nous traiterons des limitations de la taille
+                        de <code>VALSIZE</code> directement lors de la
+                        création de la class de génération des
+                        valeurs.Celle-ci arrêtera, le testbench en cas
+                        de dépassement de la taille de
+                        <code>VALSIZE</code>.</p>
+                        <p><em>note: Après utilisation du testbench, on
+                        s’apercoit que le temps de compilation du DUV
+                        ainsi que tout les actions qui précèdent
+                        l’instanciation de la class
+                        <code>value_generatot</code>, par l’appel d’une
+                        classe enfant, est realtivemen long. Il serait
+                        donc préférable de limiter la taille de
+                        <code>VALSIZE</code> hors de la class. Cela n’a
+                        pas été fait afin de maintenir un code
+                        compréhensible et modulaire.</em></p>
+                        <h4 id="errno">2.1.3 <code>ERRNO</code></h4>
+                        <p>Pour une valeur de <code>ERRNO</code>
+                        comprise entre 0 et 3, le résultat est valide.
+                        Pour une valeur de <code>ERRNO</code> comprise
+                        entre 16 et 21, le résultat n’est pas
+                        valide.</p>
+                        <h2 id="structure-du-banc-de-test">3. Structure
+                        du banc de test</h2>
+                        <p>Le banc de test met à disposition deux
+                        interfaces.</p>
+                        <ul>
+                        <li><code>interface min_max_in_itf</code> :
+                        interface permettant de définir des valeur en
+                        entrée du composant
+                        <code>min_max_top</code></li>
+                        <li><code>interface min_max_out_itf</code> :
+                        interface permettant de récupérer la valeur de
+                        sortie du composant
+                        <code>min_max_top</code></li>
+                        </ul>
+                        <p>Voici la structure des interfaces :</p>
+                        <div class="sourceCode" id="cb11"><pre
+                        class="sourceCode tcl"><code class="sourceCode tcl"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>interface min_max_in_itf#(int VALSIZE);</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    logic<span class="kw">[</span><span class="dv">1</span>:<span class="dv">0</span><span class="kw">]</span> com;</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    logic<span class="kw">[</span>VALSIZE<span class="dv">-1</span>:<span class="dv">0</span><span class="kw">]</span> max;</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    logic<span class="kw">[</span>VALSIZE<span class="dv">-1</span>:<span class="dv">0</span><span class="kw">]</span> min;</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    logic osci;</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    logic<span class="kw">[</span>VALSIZE<span class="dv">-1</span>:<span class="dv">0</span><span class="kw">]</span> value;</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>endinterface</span></code></pre></div>
+                        <div class="sourceCode" id="cb12"><pre
+                        class="sourceCode tcl"><code class="sourceCode tcl"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>interface min_max_out_itf#(int VALSIZE);</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    logic<span class="kw">[</span><span class="dv">2</span>**VALSIZE<span class="dv">-1</span>:<span class="dv">0</span><span class="kw">]</span> leds;</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>endinterface</span></code></pre></div>
+                        <p>Nous avons décidé de structurer le testbench
+                        avec des classes.</p>
+                        <p>Dans notre cas nous avons 3 classes.</p>
+                        <ul>
+                        <li><code>value_generator</code> : Une classe
+                        parente permettant d’éviter la redondance de
+                        code pour la génération de valeurs des
+                        scénarios, elle contient aussi les contraintes
+                        relatives à l’entier des scénarios ainsi que des
+                        <em>utils</em> permettant l’affichage
+                        d’informations pouvant être utiles pour le
+                        debug.</li>
+                        <li><code>random_value_generator</code> : Une
+                        classe fille de <code>value_generator</code>
+                        permettant de générer des valeurs aléatoires
+                        pour toutes les propriétés de l’interface
+                        <code>min_max_in_itf</code>.</li>
+                        <li><code>boudary_value_generator</code> : Une
+                        classe fille de <code>value_generator</code>
+                        permettant de générer des valeurs aux limites
+                        pour toutes les propriétés de l’interface
+                        <code>min_max_in_itf</code>. Cette classe
+                        contient ses propres informations de
+                        coverage.</li>
+                        <li><code>full_random_generator</code> : Une
+                        classe fille de
+                        <code>random_values_generator</code> qui utilise
+                        les fonctions de randomisation de la class
+                        parent. Cette classe contient ses propres
+                        informations de coverage.</li>
+                        <li><code>mode_generator</code> : Une classe
+                        fille de <code>random_values_generator</code>
+                        qui utilise les fonctions de randomisation de la
+                        class parent mais applique un mode spécifique.
+                        Cette classe contient ses propres informations
+                        de coverage.</li>
+                        </ul>
+                        <h3 id="ordonnancements-des-actions">3.1
+                        Ordonnancements des actions</h3>
+                        <p>De manière à ce que le banc de test possède
+                        les valeurs nécessaires aux bons instants, nous
+                        créons les valeurs sur les flancs d’horloge
+                        montant et nous les vérifions sur les flancs
+                        d’horloge descendants. De cette manière.</p>
+                        <h2 id="scénarios-de-test">4. Scénarios de
+                        test</h2>
+                        <p>Afin de couvrir un maximum de comportements
+                        du module <code>min_max_top</code>, plusieurs
+                        scénarios de test ont été définis.</p>
+                        <h3 id="scénario-de-test-full-random">4.1
+                        Scénario de test : Full Random</h3>
+                        <p>Ce scénario de test est le plus complet et
+                        permet de tester le module
+                        <code>min_max_top</code> avec des valeurs
+                        aléatoires générées dans le range des valeurs
+                        possibles de l’interface.</p>
+                        <h4 id="coverage-de-full-random">4.1.1 Coverage
+                        de Full Random</h4>
+                        <p>Afin de garantir un coverage des valeurs de
+                        100%, nous vérifions que chaque valeur de
+                        l’interface ait été testée sur la plage [0,
+                        2**VALSIZE-1], max allant de la valeur max / 2 a
+                        la valeur max, min allant de 0 à la valeur (max
+                        / 2) - 1. C’est trois valeurs sont réparties
+                        dans 4 boites.</p>
+                        <h4 id="limites-de-full-random">4.1.2 Limites de
+                        Full Random</h4>
+                        <p>Le scenarion Full Random couvre des tailles
+                        de valeurs jusqu’à <code>VALSIZE</code> = 18,
+                        cela de manière à avoir un temps raisonnable
+                        situé en dessous de <code>5 - 6 [m]</code>. Au
+                        delà de cette valeur, le temps d’exécution du
+                        testbench est trop long et le système devient
+                        instable.</p>
+                        <p>Par l’absence de valeur explicitement
+                        indiquée, nous admettons que la couverture de
+                        <code>VALSIZE</code> = 18 est suffisante pour
+                        garantir le bon fonctionnement du module
+                        <code>min_max_top</code>. L’affichage de
+                        <code>256K</code> leds semble suffisant pour un
+                        <code>binlin</code>.</p>
+                        <p>Étant donné l’obfuscation du <code>DUV</code>
+                        nous ne nous intéresserons pas aux instabilités
+                        du système dans ce laboratoire.</p>
+                        <h3 id="scénario-de-test-boundary">4.2 Scénario
+                        de test : Boundary</h3>
+                        <p>Ce scénario de test permet de tester le
+                        module <code>min_max_top</code> avec des valeurs
+                        aux limites des bornes possibles. Les valeurs de
+                        <code>min</code> et <code>max</code> sont
+                        définies à <code>0</code> et
+                        <code>2**VALSIZE-1</code>.</p>
+                        <p>Quant à la valeur <code>value</code>, elle va
+                        osciller entre <code>0</code> et
+                        <code>2**VALSIZE-1</code> jusqu’à que toutes les
+                        combinaisons de <code>osci</code>,
+                        <code>com</code> et <code>value</code> avec
+                        <code>0</code> et <code>2**VALSIZE-1</code>
+                        aient été testées.</p>
+                        <h4 id="coverage-de-boundary">4.2.1 Coverage de
+                        Boundary</h4>
+                        <p>Afin de garantir un coverage des valeurs de
+                        100%, nous vérifions que toute les combinaisons
+                        de <code>osci</code>, <code>com</code> et
+                        <code>value</code> avec <code>0</code> et
+                        <code>2**VALSIZE-1</code> aient été testées.</p>
+                        <h4 id="limites-de-boundary">4.2.2 Limites de
+                        Boundary</h4>
+                        <p>Ce scenario peut couvrir les tailles de
+                        <code>VALSIZE</code> jusqu’à la limite du
+                        systeme etant donné que taille de
+                        <code>VALSIZE</code> n’est pas un facteur
+                        limitant pour ce scénario de test, cependant
+                        afin d’être raisonnable, nous avons limité la
+                        taille de <code>VALSIZE</code> à 21.</p>
+                        <div class="page-break">
+
+                        </div>
+                        <h3 id="scénario-de-test-mode">4.3 Scénario de
+                        test : Mode</h3>
+                        <p>Un scénarion de test spécifique pour tester
+                        un mode précis du module
+                        <code>min_max_top</code> à été mis en place sur
+                        le mode <code>00</code>. Cela de manière à
+                        demontrer de la possibilité de tester des modes
+                        spécifiques avec l’architecture mise en place.
+                        Ce test est quasiment similaire au Full Random,
+                        mais sur un mode spécifique.</p>
+                        <p>Ce test à exactement les mêmes limites que le
+                        Full Random.</p>
+                        <h3 id="scénarion-de-test-complet">4.4 Scénarion
+                        de test complet</h3>
+                        <p>En executant le scénario de test avec un
+                        <code>TESTCASE</code> = 0, le testbench
+                        exécutera les trois scénarios de test
+                        précédents. Bien evidemment, il y a de la
+                        redondance, à savoir que le scénario de test
+                        Full Random est executé deux fois pour un même
+                        mode ainsi que pour le scénario testant les
+                        limites pour un <code>VALSIZE</code> inferieur
+                        ou égal à 6.</p>
+                        <div class="page-break">
+
+                        </div>
+                        <h2 id="génération-des-réferences">5. Génération
+                        des réferences</h2>
+                        <p>Le fonctionnement du DUV etant connu, il nous
+                        est possible de générer des références pour les
+                        différents scénarios de test.</p>
+                        <p>Pour ce faire, nous avons besoin de quatres
+                        taches :</p>
+                        <table>
+                        <colgroup>
+                        <col style="width: 8%" />
+                        <col style="width: 15%" />
+                        <col style="width: 75%" />
+                        </colgroup>
+                        <thead>
+                        <tr class="header">
+                        <th>Commande</th>
+                        <th>Fonction</th>
+                        <th>Description</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr class="odd">
+                        <td>00</td>
+                        <td>Marche normale</td>
+                        <td>Si Valeur est compris entre Max et Min
+                        (bornes incluses)</td>
+                        </tr>
+                        <tr class="even">
+                        <td></td>
+                        <td></td>
+                        <td>— les leds de Min à Val sont allumées avec
+                        intensité forte</td>
+                        </tr>
+                        <tr class="odd">
+                        <td></td>
+                        <td></td>
+                        <td>— les leds de (Val+1) à Max sont allumées
+                        avec intensité faible</td>
+                        </tr>
+                        <tr class="even">
+                        <td></td>
+                        <td></td>
+                        <td>— toutes les autres leds sont éteintes</td>
+                        </tr>
+                        <tr class="odd">
+                        <td></td>
+                        <td></td>
+                        <td>Si Valeur est hors de l’intervalle [Max Min]
+                        toutes les leds sont éteintes</td>
+                        </tr>
+                        <tr class="even">
+                        <td>01</td>
+                        <td>Mode linéaire</td>
+                        <td>Affichage de Val en linéaire, Leds de 0 à
+                        Val sont allumées avec une intensité forte</td>
+                        </tr>
+                        <tr class="odd">
+                        <td>10</td>
+                        <td>Test éteint</td>
+                        <td>Toutes les leds de l’afficheur sont éteintes
+                        (état ‘0’)</td>
+                        </tr>
+                        <tr class="even">
+                        <td>11</td>
+                        <td>Test allumé fort</td>
+                        <td>Toutes les leds de l’afficheur sont allumées
+                        avec une intensité forte (état ‘1’)</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                        En fonction du mode de fonctionnement déterminé
+                        dans l’interface <code>min_max_in_itf</code>,
+                        nous allons générer les références relative au
+                        tableau ci-dessus et stocker les valeurs dans
+                        une variable <code>leds_ref</code>.
+                        <div class="page-break">
+
+                        </div>
+                        <h2 id="vérification-des-résultats">6
+                        Vérification des résultats</h2>
+                        <p>Afin de vérifier les résultats, nous allons
+                        comparer les valeurs de <code>leds_ref</code>
+                        obtenues lors de la génération des références
+                        avec les valeurs de <code>leds</code> présentes
+                        dans l’interface de sortie
+                        <code>min_max_out_itf</code>.</p>
+                        <p>En cas d’erreur, un signal
+                        <code>error_signal</code> sera activé jusqu’au
+                        prochain front d’horloge descendant afin de
+                        signaler le traitement necessaire d’une
+                        erreur.</p>
+                        <p>De plus, cela affichera un message avec les
+                        éléments qui ont généré l’erreur.</p>
+                        <p>Le système n’est pas arrêté en cas d’erreur
+                        et le testbench continue de s’exécuter.</p>
+                        <h2 id="gestions-des-erreurs">7. Gestions des
+                        erreurs</h2>
+                        <p>Lors de l’exécution du testbench avec
+                        injection d’erreur, le système va les detecter
+                        et la tache de vérification va activer le
+                        signa<code>error_signal</code>. Dès lors, la
+                        tache <code>wait_for_error</code> traitera
+                        l’erreur au prochain front montant de
+                        l’horloge.</p>
+                        <p>Dans le cadre de ce laboratoire, le
+                        traitement de l’erreur consiste uniquement à
+                        incrémenter le compteur d’erreur
+                        <code>error_count</code>.</p>
+                        <p>Il serait idéal de créer un snapshot de
+                        l’interface <code>min_max_in_itf</code> et
+                        <code>min_max_out_itf</code> pour analyser les
+                        valeurs en entrée et en sortie du composant
+                        <code>min_max_top</code> lors de l’erreur. Cela
+                        en complément du chronogramme généré par le
+                        testbench.</p>
+                        <h2 id="gestion-de-la-couverture">8. gestion de
+                        la couverture</h2>
+                        <p>La couverture est gérée par la tache
+                        <code>wait_for_coverage</code> qui va analyser
+                        la couverture relative au scénario/s joué/s et
+                        se terminé une fois le 100% atteint.</p>
+                        <p>C’est cette tache qui mettra fin au
+                        testbench.</p>
+                        <div class="page-break">
+
+                        </div>
+                        <h2 id="test-dirigé">9. Test dirigé</h2>
+                        <p>Afin de lancer une série de tests, nous avons
+                        rajouté au fichier <code>default.rmdb</code> les
+                        scénarios de test à exécuter. Ils exécutent tous
+                        le <code>TESTCASE</code> 0, avec un
+                        <code>VALSIZE</code> de 10 et les
+                        <code>ERRNO</code> suivants: [0, 1, 2, 3 ,16,
+                        17, 18, 19, 20, 21].</p>
+                        <h2 id="conclusion">9. Conclusion</h2>
+                        <p>Dans ce laboratoire, nous avons appliqué les
+                        concepts abordés en cours de <em>Vérification
+                        des systèmes embarqués (VSE)</em> en testant un
+                        <code>binlin</code> possédant différents modes,
+                        le module <code>min_max_top</code>. Nous avons
+                        mis en place un banc de test définissant des
+                        scénarios prenant en compte l’aléatoire aisni
+                        qu’un scénario de valeurs limites, permettant de
+                        couvrir un maximum de configurations et de
+                        détecter d’éventuels dysfonctionnements.</p>
+                        <p>De plus, l’utilisation de classes modulaires
+                        et la séparation des tâches d’exécution et de
+                        vérification ont facilité l’automatisation et la
+                        maintenance du testbench. La gestion des erreurs
+                        et de la couverture a permis une vérification
+                        exhaustive du composant, avec une couverture de
+                        100 % assurée avant la fin des simulations.</p>
+                        <p>Cependant, après analyse des de
+                        l’architecture ainsi que des durées total
+                        d’exécution des tests, il serait judicieux de
+                        revoir l’architecture du banc de test en ayant
+                        des tests plus ciblés et moins redondants.</p>
+                        <p>Nous avons beaucoup appris sur le langage
+                        <code>SystemVerilog</code> et ses limites. Nous
+                        sommes dès lors capables d’écrire des bancs de
+                        test simple permettant la vérification de
+                        modules tout en garantissant une durée
+                        d’exécution des tests raisonnable.</p>
+                        <h2 id="références">10. Références</h2>
+                        <ul>
+                        <li><strong>Cours</strong> de Vérification des
+                        systèmes embarqués, HEIG-VD, 2024
+                        <ul>
+                        <li>VSE_01_intro_verification_systeme_embarque.pdf</li>
+                        <li>VSE_09_sv_randomization.pdf</li>
+                        <li>VSE_10_sv_coverage.pdf</li>
+                        </ul></li>
+                        <li><strong>Chat GPT</strong> pour l’aide à la
+                        compréhension du langage SystemVerilog</li>
+                        </ul>
+        </main>
+    </body>
+</html>

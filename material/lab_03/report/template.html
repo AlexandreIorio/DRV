@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<style>
+$styles.html()$
+</style>
+
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>$title$</title>
+        <link rel="stylesheet" href="template.css">
+
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script> -->
+        <!-- <script>hljs.highlightAll();</script> -->
+
+        <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"></link> -->
+
+    </head>
+    <body>
+        <img class="logo" src="logo.png"> </div>    
+        <div class="cover">
+            <div class="title">
+                <div class="h1 text-center">$title1$</div>
+                <div class="h2 text-center">$departement$</div>
+                <div class="h2 text-center">$course$</div>
+            </div>
+            <div class="cover-info">
+                <div class="title-info">
+                    <span>Auteurs: </span> <strong><span>$author$</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Professeur: </span> <strong><span>$professor$</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Assistant: </span> <strong><span>$assistant$</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Salle de laboratoire </span> <strong><span>$classroom$</span></strong>
+                </div>
+                <div class="title-info">
+                    <span>Date: </span> <strong><span>$date$</span></strong>
+                </div>
+            </div>
+        </div>
+        <main>
+            $if(toc)$
+            <div class="h2">$toc-title$</div>
+            $toc$       
+            <div style="page-break-after:always;"></div>
+            $endif$
+            $body$
+        </main>
+    </body>
+</html>
+
