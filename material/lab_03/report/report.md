@@ -84,6 +84,133 @@ En recherchant dans le `sysfs`, on trouve `ttyUSB0` dans plusieurs répertoires:
 
 ### Exercice 5 
 
+Dans un premier temps, nous allons compiler pour la machine hôte.
+
+```
+~/heig/drv/labos/DRV/material/lab_03/parrot_module on lab03 ⇡1      
+❯ make CC=x86_64-linux-gnu-gcc-13
+
+```
+On lance un trackeur de log:
+```
+~/heig/drv/labos/DRV/material/lab_03/parrot_module on lab03 ⇡1
+❯ sudo dmesg -w | grep ioctl
+```
+
+puis inserer le module:
+
+```
+~/heig/drv/labos/DRV/material/lab_03/parrot_module on lab03 ⇡1      
+❯ insmod parrot.ko  
+```
+On vérifie que le module est bien chargé:
+
+```
+∅ /dev                                                              
+❯ lsmod | grep parrot
+parrot                 12888  0
+```
+
+On analyse la sortie du trackeur de log:
+
+```
+
+~/heig/drv/labos/DRV/material/lab_03/parrot_module on lab03 ⇡1      
+❯ sudo dmesg -w | grep ioctl
+[ 5001.991867] ioctl PARROT_CMD_TOGGLE: 11008
+[ 5001.991869] ioctl PARROT_CMD_ALLCASE: 1074014977
+
+```
+
+On connait maintenant les valeurs des commandes `PARROT_CMD_TOGGLE` et `PARROT_CMD_ALLCASE`.
+
+Après avoir relevé le numéro majeur du module dans le fichier `parrot.c`, nous allons créer un node avec `mknod`:
+```
+∅ /dev                                                              
+❯ sudo mknod my_node c 97 0
+```
+
+
+On lui donne full access:
+
+```
+∅ /dev                                                              
+❯ sudo chmod 777 my_node
+```
+
+On ecris dans le fichier:
+
+```
+∅ /dev                                                              
+❯ echo "Hello World" > my_node
+```
+
+On lit le contenu du fichier:
+
+```
+∅ /dev
+❯ cat my_node
+Hello World
+```
+On compile ioctl.c:
+
+```
+~/heig/drv/labos/DRV/material/lab_03
+❯ gcc -o ioctl ioctl.c
+```
+
+On execute le programme avec `PARROT_CMD_TOGGLE`:
+
+```
+~/heig/drv/labos/DRV/material/lab_03
+❯ ./ioctl /dev/my_node 11008 0
+```
+
+On lit le contenu du fichier:
+
+```
+∅ /dev
+❯ cat my_node
+hELLO wORLD
+```
+
+On lance le programme avec `PARROT_CMD_ALLCASE` et l'argument `0`:
+
+```
+~/heig/drv/labos/DRV/material/lab_03
+❯ ./ioctl /dev/my_node 1074014977 0
+```
+
+On lit le contenu du fichier:
+
+```
+∅ /dev
+❯ cat my_node
+HELLO WORLD
+```
+
+On lance le programme avec `PARROT_CMD_ALLCASE` et l'argument `1`:
+
+```
+~/heig/drv/labos/DRV/material/lab_03
+❯ ./ioctl /dev/my_node 1074014977 1
+```
+
+On lit le contenu du fichier:
+
+```
+∅ /dev
+❯ cat my_node
+hello world
+```
+
+Dès lors on peut dire que `ioctl` fait son travail. 
+
+
+
+
+
+
 make CC=arm-linux-gnueabihf-gcc-6.4.1
 
-make CC=x86_64-linux-gnu-gcc-13
+make CC=x86_64-linux-gnu-gcc-13 ds
