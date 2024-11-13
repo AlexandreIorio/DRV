@@ -204,13 +204,61 @@ On lit le contenu du fichier:
 hello world
 ```
 
-Dès lors on peut dire que `ioctl` fait son travail. 
+Nous avons modernisé le driver. Maintenant le node perrot apparait directement dans `/dev/` et nous pouvons faire les mêmes actions qu'avant.
 
 
+Un Case permettant de restituer la string initial est ajouté. Voici la valeur à passer en argument à `ioctl`:
 
+```
+∅ /dev                                                                                                
+❯ sudo dmesg | grep ioctl 
+[ 2896.392884] ioctl PARROT_CMD_TOGGLE: 11008
+[ 2896.392888] ioctl PARROT_CMD_ALLCASE: 1074014977
+[ 2896.392891] ioctl PARROT_CMD_RESET: 11010
+```
+
+Testons le tout:
+
+```
+
+∅ /dev                                                                                                 at 16:14:04
+❯ sudo chmod 777 parrot
+
+∅ /dev                                                                                                 at 16:14:21
+❯ echo "Hello World" >> parrot     
+
+∅ /dev                                                                                                 at 16:14:29
+❯ cat parrot 
+Hello World
+```
+
+On execute `ioctl`:
+
+```
+~/heig/drv/labos/DRV/material/lab_03 on lab03 !2                                                       at 16:06:13
+❯  ./ioctl /dev/parrot 1074014977 1
+
+
+∅ /dev                                                                                                 at 16:14:37
+❯ cat parrot
+hello world
+
+
+~/heig/drv/labos/DRV/material/lab_03 on lab03 !3                                                       at 16:16:52
+❯  ./ioctl /dev/parrot 11010 0
+
+
+∅ /dev                                                                                                 at 16:16:57
+❯ cat parrot
+Hello World
+```
+On se rend compte que le driver fonctionne correctement mis a part le problème de permission.
+
+En effet, nous avons testé le uevent et nous avons pu constater que le driver est bien chargé et que le uevent est bien appelé, par contre la permission à du être mise à la main. 
+
+Par simplicité, la permission à été mise à 777, mais il serait plus judicieux de mettre une permission plus adéquate. 
 
 
 
 make CC=arm-linux-gnueabihf-gcc-6.4.1
 
-make CC=x86_64-linux-gnu-gcc-13 ds

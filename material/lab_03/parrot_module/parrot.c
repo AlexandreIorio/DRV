@@ -5,15 +5,16 @@
 #include <linux/slab.h> /* Needed for kmalloc */
 #include <linux/uaccess.h> /* copy_(to|from)_user */
 #include <linux/cdev.h> /* Needed for cdev */
-#include <linux/string.h>
+#include <linux/string.h> /* Needed for string manipulation */
 
 #include "parrot.h"
 
 #define MAJOR_NUM 97
 #define DEVICE_NAME "parrot"
-#define PERMISSIONS 644
+#define PERMISSIONS 777
 
 static char *global_buffer;
+static char *initial_buffer;
 static int buffer_size;
 
 // store the device number
@@ -94,24 +95,44 @@ static ssize_t parrot_write(struct file *filp, const char __user *buf,
 
 	*ppos = 0;
 
-	if (buffer_size != NULL) {
+	// check if the buffer is already allocated
+	if (global_buffer != NULL) {
 		kfree(global_buffer);
 		global_buffer = NULL;
 	}
 
+	if (initial_buffer != NULL) {
+		kfree(initial_buffer);
+		initial_buffer = NULL;
+	}
+
 	global_buffer = kmalloc(count + 1, GFP_KERNEL);
+	initial_buffer = kmalloc(count + 1, GFP_KERNEL);
 
 	// be sure that the allocation succeed
 	if (!global_buffer) {
 		return -ENOMEM;
 	}
 
+	// be sure that the allocation succeed
+	if (!initial_buffer) {
+		kfree(global_buffer);
+		global_buffer = NULL;
+		initial_buffer = NULL;
+		return -ENOMEM;
+	}
+
 	// check if the copy_from_user succeed and if the uncopide data is not 0
 	if (copy_from_user(global_buffer, buf, count)) {
 		kfree(global_buffer);
+		kfree(initial_buffer);
 		global_buffer = NULL;
+		initial_buffer = NULL;
 		return -EFAULT;
 	}
+
+	// save the initial value
+	strcpy(initial_buffer, global_buffer);
 
 	global_buffer[count] = '\0';
 
@@ -137,7 +158,7 @@ static ssize_t parrot_write(struct file *filp, const char __user *buf,
 static long parrot_ioctl(struct file *filep, unsigned int cmd,
 			 unsigned long arg)
 {
-	if (buffer_size == NULL) {
+	if (buffer_size == 0) {
 		return -1;
 	}
 
@@ -161,6 +182,11 @@ static long parrot_ioctl(struct file *filep, unsigned int cmd,
 		}
 		break;
 
+	case PARROT_CMD_RESET:
+		// restore the initial value
+		strcpy(global_buffer, initial_buffer);
+		break;
+
 	default:
 		break;
 	}
@@ -177,6 +203,7 @@ const static struct file_operations parrot_fops = {
 static int parrot_uevent(const struct device *dev, struct kobj_uevent_env *env)
 {
 	// Add the device mode to the uevent
+	pr_info("Parrot Adding DEVMODE to uevent\n");
 	add_uevent_var(env, "DEVMODE=%#o", PERMISSIONS);
 	return 0;
 }
@@ -210,8 +237,11 @@ static int __init parrot_init(void)
 		pr_err("Failed to initialize class\n");
 		cdev_del(&c_device);
 		unregister_chrdev_region(dev_nbr, 1);
-		return PTR_ERR(cls_device);
+		return -1;
 	}
+
+	// set the device uevent callback
+	cls_device->dev_uevent = parrot_uevent;
 
 	// Do mknod
 	if (device_create(cls_device, NULL, dev_nbr, NULL, DEVICE_NAME) ==
@@ -223,14 +253,12 @@ static int __init parrot_init(void)
 		return -1;
 	}
 
-	// set the device uevent
-	cls_device->dev_uevent = parrot_uevent;
-
 	buffer_size = 0;
 
 	pr_info("Parrot ready!\n");
 	pr_info("ioctl PARROT_CMD_TOGGLE: %u\n", PARROT_CMD_TOGGLE);
 	pr_info("ioctl PARROT_CMD_ALLCASE: %lu\n", PARROT_CMD_ALLCASE);
+	pr_info("ioctl PARROT_CMD_RESET: %u\n", PARROT_CMD_RESET);
 	return 0;
 }
 
@@ -240,8 +268,15 @@ static void __exit parrot_exit(void)
 		kfree(global_buffer);
 		global_buffer = NULL;
 	}
+	// remove the device
+	device_destroy(cls_device, dev_nbr);
 
-	unregister_chrdev(MAJOR_NUM, DEVICE_NAME);
+	// remove the class
+	class_destroy(cls_device);
+
+	// remove the device node
+	cdev_del(&c_device);
+	unregister_chrdev_region(dev_nbr, 1);
 
 	pr_info("Parrot done!\n");
 }
