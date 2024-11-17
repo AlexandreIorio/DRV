@@ -1,6 +1,9 @@
 ### Put here the path to kernel sources! ###
-KERNELDIR := /home/cdk/assistanat/drv/linux-socfpga/
+KERNELDIR := /home/aiorio/heig/drv/labos/linux-socfpga/
 TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
+
+# Deployment directory
+DEPLOY_DIR = /export/drv/labo04/
 
 obj-m := stack.o
 
@@ -20,3 +23,8 @@ stack:
 clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions modules.order Module.symvers
 	rm stack_test
+
+deploy:
+	@echo "Deploying"
+	cp stack.ko $(DEPLOY_DIR)
+	cp stack_test $(DEPLOY_DIR)

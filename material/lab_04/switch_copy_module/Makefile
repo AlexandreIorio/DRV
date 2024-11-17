@@ -1,5 +1,5 @@
 ### Put here the path to kernel sources! ###
-KERNELDIR := /home/reds/linux-socfpga/
+KERNELDIR := /home/aiorio/heig/drv/labos/linux-socfpga/
 TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
 
 obj-m := switch_copy.o
