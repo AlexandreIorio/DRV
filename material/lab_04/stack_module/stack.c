@@ -21,6 +21,11 @@
 static struct cdev cdev;
 static struct class *cl;
 
+struct stack {
+	int *data;
+	int size;
+	int capacity;
+};
 /**
  * @brief Pop and return latest added element of the stack.
  *
@@ -51,8 +56,13 @@ static ssize_t stack_read(struct file *filp, char __user *buf, size_t count,
  */
 static ssize_t stack_write(struct file *filp, const char __user *buf,
 			   size_t count, loff_t *ppos)
+
 {
 	return 0;
+}
+
+int stack_open(struct inode *inode, struct file *filp)
+{
 }
 
 /**
@@ -71,12 +81,20 @@ static int stack_uevent(struct device *dev, struct kobj_uevent_env *env)
 static const struct file_operations stack_fops = {
 	.owner = THIS_MODULE,
 	.read = stack_read,
+	.open = stack_open,
 	.write = stack_write,
 };
 
 static int __init stack_init(void)
 {
 	int err;
+
+	struct stack *stack_priv = kmalloc(sizeof(struct stack), GFP_KERNEL);
+
+	if (!stack_priv) {
+		pr_err("Stack: Error allocating memory\n");
+		return -ENOMEM;
+	}
 
 	// Register the device
 	err = register_chrdev_region(MAJMIN, 1, DEVICE_NAME);
@@ -101,7 +119,8 @@ static int __init stack_init(void)
 	}
 
 	cdev_init(&cdev, &stack_fops);
-	err = cdev_add(&cdev, MAJMIN, 1);
+	// Set the private data of the device
+	*cdev.err = cdev_add(&cdev, MAJMIN, 1);
 	if (err < 0) {
 		pr_err("Stack: Adding char device failed\n");
 		device_destroy(cl, MAJMIN);
