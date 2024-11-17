@@ -2,12 +2,18 @@
 KERNELDIR := /home/aiorio/heig/drv/labos/linux-socfpga/
 TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
 
+DEPLOY_DIR := /export/drv/labo04/
+
 obj-m := switch_copy.o
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
 
 all: switch_copy
+
+deploy:
+	@echo "Deploying"
+	cp switch_copy.ko $(DEPLOY_DIR)
 
 switch_copy:
 	@echo "Building with kernel sources in $(KERNELDIR)"
