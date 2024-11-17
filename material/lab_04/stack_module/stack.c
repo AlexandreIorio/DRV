@@ -91,8 +91,7 @@ static ssize_t stack_read(struct file *filp, char __user *buf, size_t count,
 		return -EFAULT;
 	}
 	kfree(read_values);
-	// do not return count, because if the stack is smaller than count we
-	// should return the actual number of bytes read
+
 	return nb_values * sizeof(uint32_t);
 }
 
