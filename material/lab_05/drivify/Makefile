@@ -8,7 +8,7 @@ DEPLOY_DIR := /export/drv/
 obj-m := drivify.o
 
 # Ajout des fichiers supplémentaires nécessaires
-drivify-y := ex1.o 
+drivify-y := ex1.o music.o keys.o 
 #button.o
 
 PWD := $(shell pwd)
