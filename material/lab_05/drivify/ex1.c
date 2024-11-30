@@ -196,9 +196,7 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
 	struct music music;
-	char buffer[100];
 	struct priv *priv;
-	int ret;
 
 	priv = (struct priv *)filp->private_data;
 
@@ -213,17 +211,11 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 	}
 
 	pr_info("[%s]: Writing\n", DEVICE_NAME);
-	if (copy_from_user(&buffer, buf, count) != 0) {
+	if (copy_from_user(&music, buf, count) != 0) {
 		pr_err("Failed to copy data from user\n");
 		return -EFAULT;
 	}
 
-	ret = get_music_from_string(&music, buffer);
-
-	if (ret < 0) {
-		pr_err("[%s]: Failed to get music from string\n", DEVICE_NAME);
-		return ret;
-	}
 	set_music_to_playlist(priv->playlist, &music);
 	return count;
 }
@@ -278,7 +270,15 @@ static int drivify_probe(struct platform_device *pdev)
 
 	if (!priv->playlist) {
 		pr_err("[%s]: Error allocating playlist\n", DEVICE_NAME);
-		goto ERR_MUSICS;
+		goto ERR_KFIFO_HEAD;
+	}
+
+	err = kfifo_alloc(priv->playlist, PLAYLIST_SIZE * sizeof(struct music),
+			  GFP_KERNEL);
+
+	if (err) {
+		pr_err("[%s]: Error allocating kfifo\n", DEVICE_NAME);
+		goto ERR_KFIFO_FULL_ALLOC;
 	}
 
 	priv->cl = class_create(THIS_MODULE, DEVICE_NAME);
@@ -324,7 +324,9 @@ ERR_DEVICE:
 ALLOC_CHRDEV:
 	class_destroy(priv->cl);
 ERR_CLASS:
-ERR_MUSICS:
+	kfifo_free(priv->playlist);
+ERR_KFIFO_FULL_ALLOC:
+ERR_KFIFO_HEAD:
 	keys_disable_interrupts(priv->regs->keys_reg);
 ERR_IRQ:
 ERR_REGS:
@@ -348,6 +350,7 @@ static int drivify_remove(struct platform_device *pdev)
 	keys_disable_interrupts(priv->regs->keys_reg);
 
 	// TODO Clear 7 seg here
+	kfifo_free(priv->playlist);
 	cdev_del(&priv->cdev);
 	device_destroy(priv->cl, priv->majmin);
 	class_destroy(priv->cl);
@@ -366,8 +369,6 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	key_index = read_keys(priv->regs->keys_reg);
 	pr_info("[%s]: Key %d pressed\n", DEVICE_NAME, key_index);
 	keys_clear_edge_reg(priv->regs->keys_reg, USED_KEYS_MASK);
-	// keys_clear_interrupt(priv->regs->keys_reg, USED_KEYS_MASK);
-
 	return IRQ_HANDLED;
 }
 

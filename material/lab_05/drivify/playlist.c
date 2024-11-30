@@ -6,10 +6,16 @@
 
 bool is_initilized_playlist(struct kfifo *playlist)
 {
-	bool is_init;
+	if (playlist == NULL) {
+		pr_err("[%s]: Playlist is NULL\n", LIB_NAME);
+		return false;
+	}
 
-	is_init = (playlist != NULL) && kfifo_initialized(playlist);
-	return is_init;
+	if (!kfifo_initialized(playlist)) {
+		pr_err("[%s]: Playlist is not initialized\n", LIB_NAME);
+		return false;
+	}
+	return true;
 }
 
 int get_music_from_string(struct music *music, const char *str)
@@ -39,8 +45,26 @@ int get_music_from_string(struct music *music, const char *str)
 
 int set_music_to_playlist(struct kfifo *playlist, struct music *music)
 {
+	int ret;
+
 	if (!is_initilized_playlist(playlist)) {
 		pr_err("[%s]: Playlist is not initialized\n", LIB_NAME);
+		return -EINVAL;
 	}
+
+	if (music == NULL) {
+		pr_err("[%s]: Music is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	ret = kfifo_in(playlist, music, sizeof(struct music));
+
+	if (ret != sizeof(struct music)) {
+		pr_err("[%s]: The music could not be added to the playlist\n",
+		       LIB_NAME);
+		return -ENOSPC;
+	}
+
+	pr_info("[%s]: Music added to playlist\n", LIB_NAME);
 	return 0;
 }

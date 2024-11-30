@@ -20,6 +20,6 @@ int get_music_from_string(struct music *music, const char *str);
 
 /// @brief Set a music to a playlist
 /// @param playlist The playlist to fill
-/// @param music The music to add
 /// @return 0 if no error
+/// @param music The music to add
 int set_music_to_playlist(struct kfifo *playlist, struct music *music);

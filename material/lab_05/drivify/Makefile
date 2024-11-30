@@ -4,26 +4,33 @@ TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
 
 DEPLOY_DIR := /export/drv/
 
-# Nom du module
+# Nom du module kernel
 obj-m := drivify.o
 
-# Ajout des fichiers supplémentaires nécessaires
-drivify-y := ex1.o music.o keys.o 
-#button.o
+# Fichiers supplémentaires pour le module kernel
+drivify-y := ex1.o playlist.o keys.o
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
 
-all: drivify deploy
+CC := $(TOOLCHAIN)gcc
+CFLAGS := -I$(KERNELDIR)/include $(WARN)
+
+all: drivify add_music deploy
 
 drivify:
-	@echo "Building with kernel sources in $(KERNELDIR)"
-	$(MAKE) ARCH=arm CROSS_COMPILE=$(TOOLCHAIN) -C $(KERNELDIR) M=$(PWD) ${WARN} modules
+	@echo "Building kernel module drivify with kernel sources in $(KERNELDIR)"
+	$(MAKE) ARCH=arm CROSS_COMPILE=$(TOOLCHAIN) -C $(KERNELDIR) M=$(PWD) modules
+
+add_music: insert_music.c
+	@echo "Building user-space application add_music"
+	$(CC) $(CFLAGS) -o add_music insert_music.c music.h
 
 deploy:
-	@echo "Deploying drivify.ko to $(DEPLOY_DIR)"
+	@echo "Deploying drivify.ko and add_music to $(DEPLOY_DIR)"
 	cp drivify.ko $(DEPLOY_DIR)
+	cp add_music $(DEPLOY_DIR)
 
 clean:
 	@echo "Cleaning up build files"
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod *.mod.c .tmp_versions modules.order Module.symvers *.a
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod *.mod.c .tmp_versions modules.order Module.symvers *.a add_music
