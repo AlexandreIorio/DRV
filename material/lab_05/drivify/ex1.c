@@ -1,7 +1,10 @@
 #include "keys.h"
+#include "hex.h"
 #include "music.h"
+#include "player.h"
 #include "playlist.h"
-#include "linux/init.h"
+#include "drivify_shared_types.h"
+#include <linux/init.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
@@ -18,6 +21,9 @@
 
 #define DEVICE_NAME "drivify"
 #define USED_KEYS_MASK 0x07
+#define LED_OFFSET 0x00
+#define HEX_OFFSET_0_3 0x20
+#define HEX_OFFSET_4_5 0x30
 struct priv;
 
 ///@brief the probe method called when the device is detected
@@ -112,8 +118,12 @@ static struct file_operations drivify_fops = {
 	.write = drivify_write,
 };
 
+///@brief the structure of the hardware registers
 struct hw_registers {
 	void __iomem *keys_reg;
+	void __iomem *hex_0_3_reg;
+	void __iomem *hex_4_5_reg;
+	void __iomem *led_reg;
 };
 
 ///@brief the private structure of the device
@@ -121,10 +131,11 @@ struct priv {
 	struct class *cl;
 	struct device *dev;
 	struct cdev cdev;
-	struct kfifo *playlist;
 	struct hw_registers *regs;
+	struct player *player;
 	dev_t majmin;
 	bool is_open;
+	bool is_running;
 };
 
 static int drivify_uevent(struct device *dev, struct kobj_uevent_env *env)
@@ -216,7 +227,8 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 		return -EFAULT;
 	}
 
-	set_music_to_playlist(priv->playlist, &music);
+	set_music_to_playlist(priv->player->playlist, &music,
+			      &priv->player->playlist_lock);
 	return count;
 }
 
@@ -257,28 +269,15 @@ static int drivify_probe(struct platform_device *pdev)
 		pr_err("[%s]: Error allocating registers\n", DEVICE_NAME);
 		goto ERR_REGS;
 	}
-	priv->regs->keys_reg = base_addr + KEYS_OFFSET;
+	priv->regs->keys_reg = (uint8_t *)base_addr + KEYS_OFFSET;
+	priv->regs->hex_0_3_reg = (uint8_t *)base_addr + HEX_OFFSET_0_3;
+	priv->regs->hex_4_5_reg = (uint8_t *)base_addr + HEX_OFFSET_4_5;
+	priv->regs->led_reg = (uint8_t *)base_addr + LED_OFFSET;
 
 	err = setup_irq(priv, pdev);
 	if (err != 0) {
 		pr_err("[%s]: Failed to setup IRQ\n", DEVICE_NAME);
 		goto ERR_IRQ;
-	}
-
-	priv->playlist =
-		devm_kzalloc(&pdev->dev, sizeof(struct kfifo), GFP_KERNEL);
-
-	if (!priv->playlist) {
-		pr_err("[%s]: Error allocating playlist\n", DEVICE_NAME);
-		goto ERR_KFIFO_HEAD;
-	}
-
-	err = kfifo_alloc(priv->playlist, PLAYLIST_SIZE * sizeof(struct music),
-			  GFP_KERNEL);
-
-	if (err) {
-		pr_err("[%s]: Error allocating kfifo\n", DEVICE_NAME);
-		goto ERR_KFIFO_FULL_ALLOC;
 	}
 
 	priv->cl = class_create(THIS_MODULE, DEVICE_NAME);
@@ -309,13 +308,46 @@ static int drivify_probe(struct platform_device *pdev)
 		goto ERR_CDEV_ADD;
 	}
 
+	priv->player =
+		devm_kzalloc(&pdev->dev, sizeof(struct player), GFP_KERNEL);
+	if (!priv->player) {
+		pr_err("[%s]: Error allocating kfifo\n", DEVICE_NAME);
+		goto ERR_PLAYER_ALLOC;
+	}
+
+	priv->player->playlist =
+		devm_kzalloc(&pdev->dev, sizeof(struct kfifo), GFP_KERNEL);
+
+	if (!priv->player->playlist) {
+		pr_err("[%s]: Error allocating playlist\n", DEVICE_NAME);
+		goto ERR_KFIFO_HEAD;
+	}
+
+	err = kfifo_alloc(priv->player->playlist,
+			  PLAYLIST_SIZE * sizeof(struct music), GFP_KERNEL);
+	spin_lock_init(&priv->player->playlist_lock);
+
+	if (err) {
+		pr_err("[%s]: Error allocating kfifo\n", DEVICE_NAME);
+		goto ERR_KFIFO_FULL_ALLOC;
+	}
+
 	keys_enable_interrupts(priv->regs->keys_reg, USED_KEYS_MASK);
 	keys_clear_edge_reg(priv->regs->keys_reg, USED_KEYS_MASK);
+
+	priv->player->hex_reg = priv->regs->hex_0_3_reg;
+	priv->player->led_reg = priv->regs->led_reg;
+	initialize_player(priv->player);
 
 	pr_info("[%s]: Module ready!\n", DEVICE_NAME);
 	return 0;
 
 // error handling
+ERR_KFIFO_FULL_ALLOC:
+	kfifo_free(priv->player->playlist);
+ERR_KFIFO_HEAD:
+ERR_PLAYER_ALLOC:
+
 ERR_CDEV_ADD:
 	cdev_del(&priv->cdev);
 	device_destroy(priv->cl, priv->majmin);
@@ -324,9 +356,6 @@ ERR_DEVICE:
 ALLOC_CHRDEV:
 	class_destroy(priv->cl);
 ERR_CLASS:
-	kfifo_free(priv->playlist);
-ERR_KFIFO_FULL_ALLOC:
-ERR_KFIFO_HEAD:
 	keys_disable_interrupts(priv->regs->keys_reg);
 ERR_IRQ:
 ERR_REGS:
@@ -348,9 +377,8 @@ static int drivify_remove(struct platform_device *pdev)
 	}
 
 	keys_disable_interrupts(priv->regs->keys_reg);
-
-	// TODO Clear 7 seg here
-	kfifo_free(priv->playlist);
+	stop_player(priv->player);
+	kfifo_free(priv->player->playlist);
 	cdev_del(&priv->cdev);
 	device_destroy(priv->cl, priv->majmin);
 	class_destroy(priv->cl);
@@ -368,6 +396,20 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	priv = (struct priv *)dev_id;
 	key_index = read_keys(priv->regs->keys_reg);
 	pr_info("[%s]: Key %d pressed\n", DEVICE_NAME, key_index);
+	switch (key_index) {
+	case 1:
+		play_pause_song(priv->player);
+		break;
+	case 2:
+		rewind_song(priv->player);
+		break;
+	case 4:
+		next_song(priv->player);
+		break;
+	default:
+		break;
+	}
+
 	keys_clear_edge_reg(priv->regs->keys_reg, USED_KEYS_MASK);
 	return IRQ_HANDLED;
 }

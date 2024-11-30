@@ -8,7 +8,7 @@ DEPLOY_DIR := /export/drv/
 obj-m := drivify.o
 
 # Fichiers supplémentaires pour le module kernel
-drivify-y := ex1.o playlist.o keys.o
+drivify-y := ex1.o playlist.o player.o keys.o hex.o 
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
@@ -24,7 +24,7 @@ drivify:
 
 add_music: insert_music.c
 	@echo "Building user-space application add_music"
-	$(CC) $(CFLAGS) -o add_music insert_music.c music.h
+	$(CC) $(CFLAGS) -o add_music insert_music.c
 
 deploy:
 	@echo "Deploying drivify.ko and add_music to $(DEPLOY_DIR)"

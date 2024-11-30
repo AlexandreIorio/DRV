@@ -1,0 +1,267 @@
+
+#include "linux/container_of.h"
+#include <linux/time.h>
+#include <linux/kthread.h>
+#include <linux/kernel.h>
+#include "player.h"
+#include "hex.h"
+#include "music.h"
+
+#include <linux/init.h>
+#include <linux/cdev.h>
+#include <linux/fs.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/ioport.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+#include <linux/kfifo.h>
+
+#define LIB_NAME "player"
+#define TIMER_INTERVAL_NS (1 * 1000 * 1000 * 1000)
+
+enum PLAYER_STATE {
+	PLAYING, // The player is playing a song
+	PAUSED, // The player is paused, the song can be resumed from where it was paused
+};
+
+enum PLAYER_COMMAND {
+	NONE, // No command
+	PLAY_PAUSE, // Playing or pausing the song
+	REWIND, // Stop the song
+	NEXT, // Play the next song
+};
+
+struct player_data {
+	struct player *player;
+	struct task_struct *my_kthread; // Pointeur vers le kthread
+	struct hrtimer my_hrtimer; // High-resolution timer
+	wait_queue_head_t wait_queue; // File d'attente pour réveiller le kthread
+	int condition; // Condition pour réveiller le kthread
+	enum PLAYER_STATE state;
+	enum PLAYER_COMMAND command;
+	struct music current_song;
+	unsigned int current_duration;
+};
+
+static int run_player(void *player);
+static void player_mss(struct player_data *data);
+static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer);
+
+static void play(struct player_data *data);
+static int display_time(unsigned int duration);
+
+int initialize_player(struct player *player)
+{
+	struct player_data *data;
+
+	pr_info("[%s]: Initilizing\n", LIB_NAME);
+
+	if (!player) {
+		pr_err("[%s]: Failed to allocate memory for player\n",
+		       LIB_NAME);
+		return -ENOMEM;
+	}
+
+	if (!player->playlist) {
+		pr_err("[%s]: Failed to allocate memory for playlist\n",
+		       LIB_NAME);
+		return -ENOMEM;
+	}
+
+	data = kmalloc(sizeof(struct player_data), GFP_KERNEL);
+
+	init_waitqueue_head(&data->wait_queue);
+	data->my_kthread = kthread_run(run_player, (void *)data, "my_kthread");
+	if (IS_ERR(data->my_kthread)) {
+		pr_err("[%s]: Failed to create kthread\n", LIB_NAME);
+		return PTR_ERR(data->my_kthread);
+	}
+
+	data->condition = 0;
+
+	data->player = player;
+	data->state = PAUSED;
+
+	// used to access the player_data from stop method
+	data->player->parent = data;
+
+	// Initialiser le hrtimer
+	hrtimer_init(&data->my_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	data->my_hrtimer.function = hrtimer_callback;
+
+	// Démarrer le hrtimer pour la première fois
+	hrtimer_start(&data->my_hrtimer, ns_to_ktime(TIMER_INTERVAL_NS),
+		      HRTIMER_MODE_REL);
+
+	clear_all_hex_0_3(player->hex_reg);
+	display_time_3_0(0, data->player->hex_reg);
+	display_nb_songs(player->playlist, player->led_reg);
+
+	return 0;
+}
+
+void stop_player(struct player *player)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->parent;
+
+	pr_info("[%s]: Unloading hrtimer kthread\n", LIB_NAME);
+
+	if (data->my_kthread) {
+		kthread_stop(data->my_kthread);
+	}
+
+	hrtimer_cancel(&data->my_hrtimer);
+	clear_all_hex_0_3(player->hex_reg);
+	kfree(data);
+}
+
+static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
+{
+	struct player_data *data;
+	data = container_of(timer, struct player_data, my_hrtimer);
+
+	data->condition = 1;
+	wake_up_interruptible(&data->wait_queue);
+	hrtimer_forward_now(
+		timer, ns_to_ktime(TIMER_INTERVAL_NS)); // Relancer le timer}
+	return HRTIMER_RESTART;
+}
+
+static int run_player(void *player_data)
+{
+	struct player_data *data = (struct player_data *)player_data;
+	pr_info("[%s]: kthread started\n", LIB_NAME);
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(data->wait_queue,
+					 data->condition ||
+						 kthread_should_stop());
+		printk("[%s]: current state %d\n", LIB_NAME, data->state);
+		player_mss(data);
+		if (data->state == PLAYING) {
+			play(data);
+			data->current_duration++;
+		}
+		data->condition = 0; // Réinitialiser la condition
+	}
+
+	pr_info("[%s]: kthread exiting\n", LIB_NAME);
+	return 0;
+}
+
+static void play(struct player_data *data)
+{
+	if (data->current_duration >= data->current_song.duration) {
+		data->current_duration = 0;
+		if (kfifo_is_empty_spinlocked(data->player->playlist,
+					      &data->player->playlist_lock)) {
+			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
+			data->state = PAUSED;
+			display_time_3_0(data->current_duration,
+					 data->player->hex_reg);
+			return;
+		}
+		data->command = NEXT;
+	}
+	display_time_3_0(data->current_duration, data->player->hex_reg);
+}
+
+static void player_mss(struct player_data *data)
+{
+	int ret;
+	struct music next_music;
+	printk("[%s]: current command %d\n", LIB_NAME, data->command);
+	switch (data->command) {
+	case PLAY_PAUSE:
+		switch (data->state) {
+		case PLAYING:
+			data->state = PAUSED;
+			break;
+		case PAUSED:
+			data->state = PLAYING;
+			break;
+		default:
+			break;
+		}
+		break;
+	case REWIND:
+		data->current_duration = 0;
+
+	case NEXT:
+		ret = kfifo_out_spinlocked(data->player->playlist, &next_music,
+					   sizeof(struct music),
+					   &data->player->playlist_lock);
+		if (ret == sizeof(struct music)) {
+			data->current_duration = 0;
+			memcpy(&data->current_song, &next_music,
+			       sizeof(struct music));
+		} else {
+			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
+		}
+		break;
+	case NONE:
+		break;
+	default:
+		pr_err("[%s]: Invalid command\n", LIB_NAME);
+		break;
+	}
+	data->command = NONE;
+}
+
+int play_pause_song(struct player *player)
+{
+	struct player_data *data;
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	data = (struct player_data *)player->parent;
+
+	if (kfifo_is_empty_spinlocked(player->playlist,
+				      &player->playlist_lock)) {
+		pr_err("[%s]: Playlist is empty\n", LIB_NAME);
+		return -EINVAL;
+	}
+	data->command = PLAY_PAUSE;
+	data->condition = 1;
+
+	return 0;
+}
+
+int rewind_song(struct player *player)
+{
+	struct player_data *data;
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	data = (struct player_data *)player->parent;
+	data->command = REWIND;
+	data->condition = 1;
+	return 0;
+}
+
+int next_song(struct player *player)
+{
+	struct player_data *data;
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+	data = (struct player_data *)player->parent;
+
+	data->command = NEXT;
+	data->condition = 1;
+	return 0;
+}

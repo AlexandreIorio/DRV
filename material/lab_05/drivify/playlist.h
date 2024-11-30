@@ -2,7 +2,6 @@
 #include <linux/kfifo.h>
 #include "music.h"
 #define PLAYLIST_SIZE 16
-#define LIB_NAME "playlist"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -22,4 +21,12 @@ int get_music_from_string(struct music *music, const char *str);
 /// @param playlist The playlist to fill
 /// @return 0 if no error
 /// @param music The music to add
-int set_music_to_playlist(struct kfifo *playlist, struct music *music);
+int set_music_to_playlist(struct kfifo *playlist, struct music *music,
+			  spinlock_t *playlist_lock);
+
+/// @brief Get a music from a playlist
+/// @param playlist The playlist to get the music from
+/// @param music The music to fill
+/// @return 0 if no error
+int get_music_from_playlist(struct kfifo *playlist, struct music *music,
+			    spinlock_t *playlist_lock);

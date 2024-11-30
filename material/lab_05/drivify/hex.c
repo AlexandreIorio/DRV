@@ -1,14 +1,10 @@
 #include "hex.h"
-#include <stdlib.h>
-#include <stdbool.h>
-#include "logger.h"
+#include <linux/io.h>
+#include <linux/printk.h>
+#include <linux/log2.h>
 
-static struct {
-	volatile uint32_t *reg_0_3;
-	volatile uint32_t *reg_4_5;
-} hex_ctl;
-
-static const uint8_t DEC_TO_HEX[] = {
+#define LIB_NAME "hex"
+static const uint8_t DIGITS[] = {
 	0x3F, // 0
 	0x06, // 1
 	0x5B, // 2
@@ -19,95 +15,100 @@ static const uint8_t DEC_TO_HEX[] = {
 	0x07, // 7
 	0x7F, // 8
 	0x6F, // 9
+	0x77, // A
+	0x7C, // B
+	0x39, // C
+	0x5E, // D
+	0x79, // E
+	0x71, // F
 };
 
-int init_hex(volatile uint32_t *hex_register_0_3,
-	     volatile uint32_t *hex_register_4_5)
+static int compute_num_digits(unsigned int value, unsigned int radix)
 {
-	logMessage(INFO, "Initializing hex display\n");
-	if (!hex_register_0_3 || !hex_register_4_5) {
-		logMessage(
-			ERROR,
-			"Error: hex display register must be a valid address\n");
-		return -1;
-	}
+	unsigned int log2_value;
+	unsigned int log2_radix;
+	if (radix < 2 || radix > 16)
+		return -EINVAL;
 
-	hex_ctl.reg_0_3 = hex_register_0_3;
-	hex_ctl.reg_4_5 = hex_register_4_5;
-#if TEST_HW
-	test_hex();
-#endif
-	return 0;
+	if (value == 0)
+		return 1;
+
+	log2_value = ilog2(value + 1); // log2(value + 1)
+	log2_radix = ilog2(radix); // log2(radix)
+
+	return (log2_value + log2_radix - 1) / log2_radix;
 }
 
-void clear_hex(uint8_t display_index)
+void clear_hex_0_3(uint8_t display_index, volatile void *__iomem reg)
 {
-	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		logMessage(
-			WARNING,
-			"Hex display %d cannot be cleared because it is not initialized\n",
-			display_index);
+	uint32_t hex_value;
+	if (display_index > 3) {
+		pr_err("[%s]: Invalid hex display index\n", LIB_NAME);
 		return;
 	}
-	if (display_index < 4) {
-		*hex_ctl.reg_0_3 &=
-			~(0xFF << (display_index * HEX_DISPLAY_OFFSET));
-	} else {
-		*hex_ctl.reg_4_5 &=
-			~(0xFF << ((display_index - 4) * HEX_DISPLAY_OFFSET));
+	if (!reg) {
+		pr_err("[%s]: Hex display cannot be cleared because it is not initialized\n",
+		       LIB_NAME);
+		return;
 	}
+	hex_value = ioread32(reg);
+	iowrite32(hex_value & ~(0xFF << (display_index * HEX_DISPLAY_OFFSET)),
+		  reg);
 }
 
-void clear_all_hex()
+void clear_hex_4_5(uint8_t display_index, volatile void *__iomem reg)
 {
-	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		logMessage(
-			WARNING,
-			"Hex display cannot be cleared because it is not initialized\n");
+	uint32_t hex_value;
+	if (display_index > 1) {
+		pr_err("[%s]: Invalid hex display index\n", LIB_NAME);
 		return;
 	}
-
-	*hex_ctl.reg_0_3 = 0x00000000;
-	*hex_ctl.reg_4_5 = 0x00000000;
+	if (!reg) {
+		pr_err("[%s]: Hex display cannot be cleared because it is not initialized\n",
+		       LIB_NAME);
+		return;
+	}
+	hex_value = ioread32(reg);
+	iowrite32(hex_value & ~(0xFF << (display_index * HEX_DISPLAY_OFFSET)),
+		  reg);
 }
 
-void test_hex(void)
+void clear_all_hex_0_3(volatile void *__iomem reg)
 {
-	logMessage(INFO, "Testing hex display\n");
-	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		logMessage(WARNING, "hex display register not initialized\n");
+	if (!reg) {
+		pr_warn("[%s]: Hex display cannot be cleared because it is not initialized\n",
+			LIB_NAME);
 		return;
 	}
-	int display_index = 0;
-	bool left_direction = true;
-	do {
-		if (left_direction) {
-			display_index++;
-			if (display_index == NUM_HEX_DISPLAY - 1) {
-				left_direction = false;
-			}
-
-		} else {
-			display_index--;
-			if (display_index == 0) {
-				left_direction = true;
-			}
-		}
-		display_digit(8, display_index);
-		usleep(50000);
-		clear_hex(display_index);
-	} while (display_index > 0);
-	logMessage(INFO, "Hex display test finished\n");
+	iowrite32(0, reg);
 }
 
-void all_hex_on(void)
+void clear_all_hex_4_5(volatile void *__iomem reg)
 {
-	if (!hex_ctl.reg_0_3 || !hex_ctl.reg_4_5) {
-		logMessage(WARNING, "Hex display cannot be turned on because it is not initialized\n");
+	if (!reg) {
+		pr_warn("[%s]: Hex display cannot be cleared because it is not initialized\n",
+			LIB_NAME);
 		return;
 	}
-	*hex_ctl.reg_0_3 = 0xFFFFFFFF;
-	*hex_ctl.reg_4_5 = 0x0000FFFF;
+	iowrite32(0, reg);
+}
+
+void clear_all_hex(volatile void *__iomem reg_0_3,
+		   volatile void *__iomem reg_4_5)
+{
+	clear_all_hex_0_3(reg_0_3);
+	clear_all_hex_4_5(reg_4_5);
+}
+
+void all_hex_on(volatile void *__iomem reg_0_3, volatile void *__iomem reg_4_5)
+{
+	if (!reg_0_3 || !reg_4_5) {
+		pr_warn("[%s]: Hex display cannot be turned on because it is not initialized\n",
+			LIB_NAME);
+		return;
+	}
+	iowrite32(0xFFFFFFFF, reg_0_3);
+	iowrite32(0x0000FFFF, reg_4_5);
 }
 
 uint8_t get_decimal_digit(int number, uint8_t digit_index)
@@ -119,71 +120,147 @@ uint8_t get_decimal_digit(int number, uint8_t digit_index)
 	return number % 10;
 }
 
-void display_digit(uint8_t number, uint8_t display_index)
+void display_digit_0_3(uint8_t number, uint8_t display_index,
+		       volatile void *__iomem reg)
 {
-	clear_hex(display_index);
-	if (display_index > 5) {
-		logMessage(WARNING, "invalid hex display index\n");
+	uint32_t hex_value;
+	if (display_index > 3) {
+		pr_warn("[%s]: Invalid hex display index\n", LIB_NAME);
 		return;
 	}
-
-	if (display_index < 4) {
-		*hex_ctl.reg_0_3 |= DEC_TO_HEX[number]
-				    << (display_index * HEX_DISPLAY_OFFSET);
-	} else {
-		*hex_ctl.reg_4_5 |= DEC_TO_HEX[number] << ((display_index - 4) *
-							   HEX_DISPLAY_OFFSET);
-	}
+	clear_hex_0_3(display_index, reg);
+	hex_value = ioread32(reg);
+	iowrite32(hex_value | DIGITS[number]
+				      << (display_index * HEX_DISPLAY_OFFSET),
+		  reg);
 }
 
-void display_decimal_number(int number)
+void display_digit_4_5(uint8_t number, uint8_t display_index,
+		       volatile void *__iomem reg)
+{
+	uint32_t hex_value;
+	if (display_index > 1) {
+		pr_warn("[%s]: Invalid hex display index\n", LIB_NAME);
+		return;
+	}
+	clear_hex_4_5(display_index, reg);
+	hex_value = ioread32(reg);
+	iowrite32(hex_value | DIGITS[number]
+				      << (display_index * HEX_DISPLAY_OFFSET),
+		  reg);
+}
+
+void display_number_0_3(int number, int radix, volatile void *__iomem reg)
 {
 	if (number < 0) {
-		logMessage(WARNING, "The number must be positive\n");
+		pr_err("[%s]: The number must be positive\n", LIB_NAME);
+		return;
+	}
+	if (compute_num_digits(number, radix) > 4) {
+		pr_err("[%s]: The number is too large to be displayed\n",
+		       LIB_NAME);
 		return;
 	}
 
-	for (int i = 0; i < NUM_HEX_DISPLAY; i++) {
-		uint8_t digit = number % 10;
+	for (int i = 0; i < 4; i++) {
+		uint8_t digit = number % radix;
 		if (number > 0 || i == 0) {
-			display_digit(digit, i);
+			display_digit_0_3(digit, i, reg);
 		} else {
-			clear_hex(i);
+			clear_hex_0_3(i, reg);
 		}
-		number /= 10;
+		number /= radix;
 	}
 }
 
-void display_value_on_displays(int value, int radix)
+void display_number_4_5(int number, int radix, volatile void *__iomem reg)
 {
-    value = abs(value);
-    if (value == 0) {
-        clear_all_hex();
-        display_digit(0, 0);
-        return;
-    }
+	if (number < 0) {
+		pr_err("[%s]: The number must be positive\n", LIB_NAME);
+		return;
+	}
+	if (compute_num_digits(number, radix) > 2) {
+		pr_err("[%s]: The number is too large to be displayed\n",
+		       LIB_NAME);
+		return;
+	}
+
+	for (int i = 0; i < 2; i++) {
+		uint8_t digit = number % radix;
+		if (number > 0 || i == 0) {
+			display_digit_4_5(digit, i, reg);
+		} else {
+			clear_hex_4_5(i, reg);
+		}
+		number /= radix;
+	}
+}
+
+void display_number_on_displays(int value, int radix,
+				volatile void *__iomem reg_0_3,
+				volatile void *__iomem reg_4_5)
+{
+	int num_digits;
+	int digit;
+	value = abs(value);
+	if (value == 0) {
+		clear_all_hex(reg_0_3, reg_4_5);
+		display_digit_0_3(0, 0, reg_0_3);
+		display_digit_4_5(0, 0, reg_4_5);
+		return;
+	}
 	if (radix < 2 || radix > 16) {
-		logMessage(WARNING, "invalid radix\n");
+		pr_err("[%s]: Invalid radix\n", LIB_NAME);
 		return;
 	}
 
 	if (value < 0) {
-		logMessage(WARNING, "The value must be positive\n");
+		pr_err("[%s]: The value must be positive\n", LIB_NAME);
 		return;
 	}
 
-	int num_digits = (int)ceil(log(value + 1) / log(radix));
-	for (int i = 0; i < NUM_HEX_DISPLAY; i++) {
+	num_digits = compute_num_digits(value, radix);
+	for (int i = 0; i < 4; i++) {
 		if (value / radix == 0 && i >= num_digits) {
-			clear_hex(i);
+			clear_hex_0_3(i, reg_0_3);
 			continue;
 		}
-		int digit = value % radix;
+		digit = value % radix;
 		if (value > 0 || i < num_digits) {
-			display_digit(digit, i);
+			display_digit_0_3(digit, i, reg_0_3);
 		} else {
-			clear_hex(i);
+			clear_hex_0_3(i, reg_0_3);
 		}
 		value /= radix;
 	}
+
+	for (int i = 0; i < 2; i++) {
+		if (value / radix == 0 && i + 4 >= num_digits) {
+			clear_hex_4_5(i, reg_4_5);
+			continue;
+		}
+		digit = value % radix;
+		if (value > 0 || i + 4 < num_digits) {
+			display_digit_4_5(digit, i, reg_4_5);
+		} else {
+			clear_hex_4_5(i, reg_4_5);
+		}
+		value /= radix;
+	}
+}
+
+void display_time_3_0(int secondes, volatile void *__iomem reg)
+{
+	int minutes;
+	if (secondes < 0) {
+		pr_err("[%s]: The time must be positive\n", LIB_NAME);
+		return;
+	}
+
+	minutes = secondes / 60;
+	secondes %= 60;
+	display_digit_0_3(secondes % 10, 0, reg);
+	display_digit_0_3(secondes / 10, 1, reg);
+	display_digit_0_3(minutes % 10, 2, reg);
+	display_digit_0_3(minutes / 10, 3, reg);
 }
