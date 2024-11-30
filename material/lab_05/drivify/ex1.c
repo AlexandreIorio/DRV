@@ -1,5 +1,6 @@
 #include "keys.h"
 #include "music.h"
+#include "playlist.h"
 #include "linux/init.h"
 #include <linux/cdev.h>
 #include <linux/fs.h>
@@ -13,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/kfifo.h>
 
 #define DEVICE_NAME "drivify"
 #define USED_KEYS_MASK 0x07
@@ -41,6 +43,18 @@ static void __exit drivify_exit(void);
 ///@param env the environment of the device
 ///@return 0 if no error
 static int drivify_uevent(struct device *dev, struct kobj_uevent_env *env);
+
+///@brief the open method called when the device is opened
+///@param inode the inode of the device
+///@param filp the file pointer
+///@return 0 if no error
+static int drivify_open(struct inode *inode, struct file *filp);
+
+///@brief the release method called when the device is closed
+///@param inode the inode of the device
+///@param filp the file pointer
+///@return 0 if no error
+static int drivify_release(struct inode *inode, struct file *filp);
 
 ///@brief the write method called when the device is written
 ///@param filp the file pointer
@@ -92,6 +106,8 @@ static struct platform_driver drivify_driver = {
 ///@brief the file operations of the device
 static struct file_operations drivify_fops = {
 	.owner = THIS_MODULE,
+	.open = drivify_open,
+	.release = drivify_release,
 	.read = drivify_read,
 	.write = drivify_write,
 };
@@ -104,10 +120,11 @@ struct hw_registers {
 struct priv {
 	struct class *cl;
 	struct device *dev;
-	struct cdev *cdev;
-	struct playlist *playlist;
+	struct cdev cdev;
+	struct kfifo *playlist;
 	struct hw_registers *regs;
 	dev_t majmin;
+	bool is_open;
 };
 
 static int drivify_uevent(struct device *dev, struct kobj_uevent_env *env)
@@ -131,6 +148,43 @@ static void __exit drivify_exit(void)
 	platform_driver_unregister(&drivify_driver);
 }
 
+static int drivify_open(struct inode *inode, struct file *filp)
+{
+	struct priv *priv;
+
+	priv = container_of(filp->f_inode->i_cdev, struct priv, cdev);
+	if (!priv) {
+		pr_err("[%s]: priv is NULL in open\n", DEVICE_NAME);
+		return -EINVAL;
+	}
+
+	if (priv->is_open) {
+		pr_err("[%s]: Device already open\n", DEVICE_NAME);
+		return -EBUSY;
+	}
+
+	priv->is_open = true;
+	filp->private_data = priv;
+	pr_info("[%s]: Opening\n", DEVICE_NAME);
+
+	return 0;
+}
+
+static int drivify_release(struct inode *inode, struct file *filp)
+{
+	struct priv *priv;
+
+	priv = (struct priv *)filp->private_data;
+	if (!priv) {
+		pr_err("[%s]: priv is NULL in close\n", DEVICE_NAME);
+		return -EINVAL;
+	}
+
+	priv->is_open = false;
+	pr_info("[%s]: Releasing\n", DEVICE_NAME);
+	return 0;
+}
+
 static ssize_t drivify_read(struct file *filp, char __user *buf, size_t count,
 			    loff_t *ppos)
 {
@@ -146,7 +200,7 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 	struct priv *priv;
 	int ret;
 
-	priv = container_of(filp->private_data, struct priv, cdev);
+	priv = (struct priv *)filp->private_data;
 
 	if (count > 100) {
 		pr_err("[%s]: Buffer too big\n", DEVICE_NAME);
@@ -164,26 +218,13 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 		return -EFAULT;
 	}
 
-	// ret = get_music_from_string(&music, buffer);
-	//
-	// if (ret < 0) {
-	// 	pr_err("Failed to get music from string\n");
-	// 	return ret;
-	// }
+	ret = get_music_from_string(&music, buffer);
 
-	// set_music_to_playlist(priv->playlist, &music);
-	pr_info("AAAAAAAAA\n");
-	music.name[0] = 'a';
-	music.artist[0] = 'b';
-	music.duration = 10;
-	pr_info("BBBBBBB\n");
-	printk("priv->playlist : [%p]\n", priv->playlist);
-	// if (!memcpy(&priv->playlist->musics[priv->playlist->playlist_index],
-	// 	    &music, sizeof(struct music))) {
-	// 	pr_err("[%s]: Error copying music\n", LIB_NAME);
-	// 	return -EINVAL;
-	// };
-	pr_info("[%s]: Music added to playlist\n", LIB_NAME);
+	if (ret < 0) {
+		pr_err("[%s]: Failed to get music from string\n", DEVICE_NAME);
+		return ret;
+	}
+	set_music_to_playlist(priv->playlist, &music);
 	return count;
 }
 
@@ -201,6 +242,8 @@ static int drivify_probe(struct platform_device *pdev)
 		       DEVICE_NAME);
 		return -ENOMEM;
 	}
+	priv->is_open = false;
+
 	platform_set_drvdata(pdev, priv);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -231,14 +274,12 @@ static int drivify_probe(struct platform_device *pdev)
 	}
 
 	priv->playlist =
-		devm_kzalloc(&pdev->dev, sizeof(struct playlist), GFP_KERNEL);
+		devm_kzalloc(&pdev->dev, sizeof(struct kfifo), GFP_KERNEL);
 
-	printk("priv->playlist : [%p]\n", priv->playlist);
 	if (!priv->playlist) {
 		pr_err("[%s]: Error allocating playlist\n", DEVICE_NAME);
 		goto ERR_MUSICS;
 	}
-	priv->playlist->playlist_index = 0;
 
 	priv->cl = class_create(THIS_MODULE, DEVICE_NAME);
 	if (!priv->cl) {
@@ -261,14 +302,8 @@ static int drivify_probe(struct platform_device *pdev)
 		goto ERR_DEVICE;
 	}
 
-	priv->cdev = devm_kzalloc(&pdev->dev, sizeof(struct cdev), GFP_KERNEL);
-	if (!priv->cdev) {
-		pr_err("[%s]: Error initializing cdev\n", DEVICE_NAME);
-		goto ERR_CDEV_INIT;
-	}
-
-	cdev_init(priv->cdev, &drivify_fops);
-	err = cdev_add(priv->cdev, priv->majmin, 1);
+	cdev_init(&priv->cdev, &drivify_fops);
+	err = cdev_add(&priv->cdev, priv->majmin, 1);
 	if (err < 0) {
 		pr_err("[%s]: Adding char device failed\n", DEVICE_NAME);
 		goto ERR_CDEV_ADD;
@@ -282,8 +317,7 @@ static int drivify_probe(struct platform_device *pdev)
 
 // error handling
 ERR_CDEV_ADD:
-	cdev_del(priv->cdev);
-ERR_CDEV_INIT:
+	cdev_del(&priv->cdev);
 	device_destroy(priv->cl, priv->majmin);
 ERR_DEVICE:
 	unregister_chrdev_region(priv->majmin, 1);
@@ -314,7 +348,7 @@ static int drivify_remove(struct platform_device *pdev)
 	keys_disable_interrupts(priv->regs->keys_reg);
 
 	// TODO Clear 7 seg here
-	cdev_del(priv->cdev);
+	cdev_del(&priv->cdev);
 	device_destroy(priv->cl, priv->majmin);
 	class_destroy(priv->cl);
 	unregister_chrdev_region(priv->majmin, 1);
