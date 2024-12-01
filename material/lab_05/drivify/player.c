@@ -52,11 +52,12 @@ struct player_data {
 };
 
 static int run_player(void *player);
-static void player_mss(struct player_data *data);
+static void define_player_state(struct player_data *data);
 static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer);
 
 static void play(struct player_data *data);
 static void reset_current_song(struct player_data *data);
+static void get_nb_songs(uint8_t *nb_songs, struct player_data *data);
 
 int initialize_player(struct player *player)
 {
@@ -89,6 +90,8 @@ int initialize_player(struct player *player)
 
 	data->player = player;
 	data->state = PAUSED;
+	data->command = NONE;
+	data->current_duration = 0;
 
 	// used to access the player_data from stop method
 	data->player->parent = data;
@@ -145,50 +148,44 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 
 static int run_player(void *player_data)
 {
-	struct player_data *data = (struct player_data *)player_data;
 	uint8_t nb_songs;
-	pr_info("[%s]: kthread started\n", LIB_NAME);
+	struct player_data *data;
+
+	data = (struct player_data *)player_data;
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(data->wait_queue,
 					 data->condition ||
 						 kthread_should_stop());
-		player_mss(data);
+		define_player_state(data);
 		if (data->state == PLAYING) {
 			play(data);
 		}
-		nb_songs = kfifo_len(data->player->playlist) /
-			   sizeof(struct music);
 
+		get_nb_songs(&nb_songs, data);
 		display_time_3_0(data->current_duration, data->player->hex_reg);
 		clear_leds(data->player->led_reg);
+		printk(KERN_INFO "[%s]: %d songs in playlist\n", LIB_NAME,
+		       nb_songs);
 		leds_up(nb_songs, data->player->led_reg);
 		data->condition = 0; // Réinitialiser la condition
 	}
-
-	pr_info("[%s]: kthread exiting\n", LIB_NAME);
 	return 0;
 }
 
 static void play(struct player_data *data)
 {
-	if (data->current_duration > data->current_song.duration) {
+	if (data->current_duration >= data->current_song.duration) {
 		data->current_duration = 0;
 		if (kfifo_is_empty_spinlocked(data->player->playlist,
 					      &data->player->playlist_lock)) {
 			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
 			reset_current_song(data);
-			data->state = PAUSED;
-			display_time_3_0(data->current_duration,
-					 data->player->hex_reg);
+			data->command = PLAY_PAUSE;
 			return;
 		}
 		data->command = NEXT;
 		return;
 	}
-	printk(KERN_INFO
-	       "[%s]: Playing %s by %s\n duration: %d current_duration: %d\n",
-	       LIB_NAME, data->current_song.name, data->current_song.artist,
-	       data->current_song.duration, data->current_duration);
 
 	data->current_duration++;
 }
@@ -200,7 +197,21 @@ static void reset_current_song(struct player_data *data)
 	data->current_song.artist[0] = '\0';
 }
 
-static void player_mss(struct player_data *data)
+static void get_nb_songs(uint8_t *nb_songs, struct player_data *data)
+{
+	if (data->command == NEXT) {
+		return;
+	} else if (data->state == PLAYING) {
+		*nb_songs = kfifo_len(data->player->playlist) /
+				    sizeof(struct music) +
+			    1; // +1 pour le morceau en cours
+	} else {
+		*nb_songs = kfifo_len(data->player->playlist) /
+			    sizeof(struct music);
+	}
+}
+
+static void define_player_state(struct player_data *data)
 {
 	int ret;
 	struct music next_music;
@@ -208,10 +219,12 @@ static void player_mss(struct player_data *data)
 	case PLAY_PAUSE:
 		switch (data->state) {
 		case PLAYING:
+			pr_info("[%s]: Pausing\n", LIB_NAME);
 			data->state = PAUSED;
 			hrtimer_cancel(&data->my_hrtimer);
 			break;
 		case PAUSED:
+			pr_info("[%s]: Playing\n", LIB_NAME);
 			data->state = PLAYING;
 			hrtimer_start(&data->my_hrtimer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
