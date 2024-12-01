@@ -231,6 +231,7 @@ static void define_player_state(struct player_data *data)
 		break;
 	case REWIND:
 		data->current_duration = 0;
+		break;
 
 	case NEXT:
 		ret = kfifo_out_spinlocked(data->player->playlist, &next_music,
