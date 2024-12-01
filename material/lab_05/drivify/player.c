@@ -1,6 +1,7 @@
 
 #include "led.h"
 #include "linux/container_of.h"
+#include "linux/hrtimer.h"
 #include <linux/time.h>
 #include <linux/kthread.h>
 #include <linux/kernel.h>
@@ -112,19 +113,17 @@ int initialize_player(struct player *player)
 void wake_up_player(struct player *player)
 {
 	struct player_data *data;
-	printk(KERN_INFO "[%s]: Waking up player\n", LIB_NAME);
 	data = (struct player_data *)player->parent;
-	data->condition = 1;
-	wake_up_interruptible(&data->wait_queue);
+	if (!hrtimer_active(&data->player_timer)) {
+		data->condition = 1;
+		wake_up_interruptible(&data->wait_queue);
+	}
 }
 
 void stop_player(struct player *player)
 {
 	struct player_data *data;
 	data = (struct player_data *)player->parent;
-
-	pr_info("[%s]: Unloading hrtimer kthread\n", LIB_NAME);
-
 	if (data->player_thread) {
 		kthread_stop(data->player_thread);
 	}
@@ -165,8 +164,6 @@ static int run_player(void *player_data)
 		get_nb_songs(&nb_songs, data);
 		display_time_3_0(data->current_duration, data->player->hex_reg);
 		clear_leds(data->player->led_reg);
-		printk(KERN_INFO "[%s]: %d songs in playlist\n", LIB_NAME,
-		       nb_songs);
 		leds_up(nb_songs, data->player->led_reg);
 		data->condition = 0; // Réinitialiser la condition
 	}
@@ -202,7 +199,7 @@ static void get_nb_songs(uint8_t *nb_songs, struct player_data *data)
 {
 	if (data->command == NEXT) {
 		return;
-	} else if (data->state == PLAYING) {
+	} else if (data->current_song.duration != 0) {
 		*nb_songs = kfifo_len(data->player->playlist) /
 				    sizeof(struct music) +
 			    1; // +1 pour le morceau en cours
@@ -243,8 +240,6 @@ static void define_player_state(struct player_data *data)
 					   sizeof(struct music),
 					   &data->player->playlist_lock);
 		if (ret == sizeof(struct music)) {
-			pr_info("[%s]: Playing %s by %s\n", LIB_NAME,
-				next_music.name, next_music.artist);
 			data->current_duration = 0;
 			memcpy(&data->current_song, &next_music,
 			       sizeof(struct music));
@@ -272,13 +267,7 @@ int play_pause_song(struct player *player)
 
 	data = (struct player_data *)player->parent;
 
-	if (kfifo_is_empty_spinlocked(player->playlist,
-				      &player->playlist_lock)) {
-		pr_err("[%s]: Playlist is empty\n", LIB_NAME);
-		return -EINVAL;
-	}
 	data->command = PLAY_PAUSE;
-	data->condition = 1;
 
 	return 0;
 }
@@ -294,7 +283,6 @@ int rewind_song(struct player *player)
 
 	data = (struct player_data *)player->parent;
 	data->command = REWIND;
-	data->condition = 1;
 	return 0;
 }
 
@@ -308,6 +296,5 @@ int next_song(struct player *player)
 	data = (struct player_data *)player->parent;
 
 	data->command = NEXT;
-	data->condition = 1;
 	return 0;
 }
