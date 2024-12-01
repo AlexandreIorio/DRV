@@ -3,6 +3,30 @@
 #include <linux/printk.h>
 
 #define LIB_NAME "led"
+void leds_up(uint8_t leds_mask, volatile void *__iomem reg)
+{
+	uint32_t led_value;
+	if (!reg) {
+		pr_err("[%s]: Led cannot be turned on because leds register not initialized\n",
+		       LIB_NAME);
+		return;
+	}
+	led_value = ioread32(reg);
+	iowrite32(led_value | (leds_mask & LED_MASK), reg);
+}
+
+void leds_down(uint8_t leds_mask, volatile void *__iomem reg)
+{
+	uint32_t led_value;
+	if (!reg) {
+		pr_err("[%s]: Led cannot be turned off because leds register not initialized\n",
+		       LIB_NAME);
+		return;
+	}
+	led_value = ioread32(reg);
+	iowrite32(led_value & ~(leds_mask & LED_MASK), reg);
+}
+
 void led_up(uint8_t led_index, volatile void *__iomem reg)
 {
 	uint32_t led_value;

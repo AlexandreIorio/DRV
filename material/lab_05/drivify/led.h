@@ -5,7 +5,15 @@
 #define LED_OFFSET 0x00
 #define LED_MASK 0x000003FF
 #define NUM_LEDS 10
-#define TEST_HW 1
+/// @brief Method to turn on the LEDs
+/// @param leds_mask The mask of the LEDs to turn on
+/// @param reg The register of the LEDs
+void leds_up(uint8_t leds_mask, volatile void *__iomem reg);
+
+/// @brief Method to turn off the LEDs
+/// @param leds_mask The mask of the LEDs to turn off
+/// @param reg The register of the LEDs
+void leds_down(uint8_t leds_mask, volatile void *__iomem reg);
 
 /// @brief Method to turn on the LED
 /// @param led_index The index of the LED to turn on

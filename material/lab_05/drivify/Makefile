@@ -8,7 +8,7 @@ DEPLOY_DIR := /export/drv/
 obj-m := drivify.o
 
 # Fichiers supplémentaires pour le module kernel
-drivify-y := ex1.o playlist.o player.o keys.o hex.o 
+drivify-y := ex1.o playlist.o player.o keys.o hex.o led.o 
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes

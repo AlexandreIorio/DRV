@@ -56,11 +56,8 @@ void keys_clear_edge_reg(void __iomem *key_reg, uint8_t key_mask)
 {
 	void __iomem *edge_capture_reg;
 	BUG_ON(!key_reg);
-	printk("[%s]: Clearing keys interrupts 0x%x\n", HW_NAME, key_mask);
 	edge_capture_reg = key_reg + KEYS_EDGE_OFFSET;
-	pr_info("[%s]: Clearing keys interrupts 0x%x\n", HW_NAME, key_mask);
 	iowrite8(key_mask, edge_capture_reg);
-	pr_info("[%s]: Interrupts keys cleared 0x%x\n", HW_NAME, key_mask);
 }
 
 // void keys_clear_interrupt(void __iomem *key_reg, uint8_t key_mask)
@@ -80,8 +77,6 @@ uint8_t key_status_interrupts(void __iomem *key_reg, uint8_t key_mask)
 
 	BUG_ON(!key_reg);
 	edge_capture_mask_reg = key_reg + KEYS_EDGE_OFFSET;
-
-	pr_info("[%s]: Reading keys interrupts status\n", HW_NAME);
 
 	key_status = ioread8(edge_capture_mask_reg) & key_mask;
 	return key_status;

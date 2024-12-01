@@ -16,5 +16,6 @@ void stop_player(struct player *player);
 int next_song(struct player *player);
 int rewind_song(struct player *player);
 int play_pause_song(struct player *player);
+void wake_up_player(struct player *player);
 
 #endif // PLAYER_H
