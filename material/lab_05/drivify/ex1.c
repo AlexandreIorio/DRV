@@ -230,7 +230,7 @@ static ssize_t drivify_write(struct file *filp, const char __user *buf,
 	set_music_to_playlist(priv->player->playlist, &music,
 			      &priv->player->playlist_lock);
 
-	wake_up_player(priv->player);
+	refresh_player(priv->player);
 
 	return count;
 }
@@ -412,8 +412,6 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	default:
 		break;
 	}
-
-	wake_up_player(priv->player);
 
 	keys_clear_edge_reg(priv->regs->keys_reg, USED_KEYS_MASK);
 	return IRQ_HANDLED;

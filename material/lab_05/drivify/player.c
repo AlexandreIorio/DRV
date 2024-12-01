@@ -59,6 +59,7 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer);
 static void play(struct player_data *data);
 static void reset_current_song(struct player_data *data);
 static void get_nb_songs(uint8_t *nb_songs, struct player_data *data);
+static void wake_up_player(struct player_data *data);
 
 int initialize_player(struct player *player)
 {
@@ -110,16 +111,6 @@ int initialize_player(struct player *player)
 	return 0;
 }
 
-void wake_up_player(struct player *player)
-{
-	struct player_data *data;
-	data = (struct player_data *)player->parent;
-	if (!hrtimer_active(&data->player_timer)) {
-		data->condition = 1;
-		wake_up_interruptible(&data->wait_queue);
-	}
-}
-
 void stop_player(struct player *player)
 {
 	struct player_data *data;
@@ -132,6 +123,12 @@ void stop_player(struct player *player)
 	clear_all_hex_0_3(player->hex_reg);
 	clear_leds(player->led_reg);
 	kfree(data);
+}
+
+static void wake_up_player(struct player_data *data)
+{
+	data->condition = 1;
+	wake_up_interruptible(&data->wait_queue);
 }
 
 static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
@@ -269,6 +266,7 @@ int play_pause_song(struct player *player)
 
 	data->command = PLAY_PAUSE;
 
+	wake_up_player(data);
 	return 0;
 }
 
@@ -283,6 +281,8 @@ int rewind_song(struct player *player)
 
 	data = (struct player_data *)player->parent;
 	data->command = REWIND;
+	wake_up_player(data);
+
 	return 0;
 }
 
@@ -296,5 +296,22 @@ int next_song(struct player *player)
 	data = (struct player_data *)player->parent;
 
 	data->command = NEXT;
+	if (!kfifo_is_empty_spinlocked(player->playlist,
+				       &player->playlist_lock)) {
+		wake_up_player(data);
+	}
 	return 0;
+}
+
+void refresh_player(struct player *player)
+{
+	struct player_data *data;
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return;
+	}
+	data = (struct player_data *)player->parent;
+	if (data->state == PAUSED) {
+		wake_up_player(data);
+	}
 }
