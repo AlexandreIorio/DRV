@@ -41,10 +41,10 @@ enum PLAYER_COMMAND {
 
 struct player_data {
 	struct player *player;
-	struct task_struct *my_kthread; // Pointeur vers le kthread
-	struct hrtimer my_hrtimer; // High-resolution timer
-	wait_queue_head_t wait_queue; // File d'attente pour réveiller le kthread
-	int condition; // Condition pour réveiller le kthread
+	struct task_struct *player_thread;
+	struct hrtimer player_timer;
+	wait_queue_head_t wait_queue;
+	int condition;
 	enum PLAYER_STATE state;
 	enum PLAYER_COMMAND command;
 	struct music current_song;
@@ -80,10 +80,11 @@ int initialize_player(struct player *player)
 	data = kmalloc(sizeof(struct player_data), GFP_KERNEL);
 
 	init_waitqueue_head(&data->wait_queue);
-	data->my_kthread = kthread_run(run_player, (void *)data, "my_kthread");
-	if (IS_ERR(data->my_kthread)) {
+	data->player_thread =
+		kthread_run(run_player, (void *)data, "my_kthread");
+	if (IS_ERR(data->player_thread)) {
 		pr_err("[%s]: Failed to create kthread\n", LIB_NAME);
-		return PTR_ERR(data->my_kthread);
+		return PTR_ERR(data->player_thread);
 	}
 
 	data->condition = 0;
@@ -97,8 +98,8 @@ int initialize_player(struct player *player)
 	data->player->parent = data;
 
 	// Initialiser le hrtimer
-	hrtimer_init(&data->my_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	data->my_hrtimer.function = hrtimer_callback;
+	hrtimer_init(&data->player_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	data->player_timer.function = hrtimer_callback;
 
 	reset_current_song(data);
 	clear_all_hex_0_3(player->hex_reg);
@@ -124,11 +125,11 @@ void stop_player(struct player *player)
 
 	pr_info("[%s]: Unloading hrtimer kthread\n", LIB_NAME);
 
-	if (data->my_kthread) {
-		kthread_stop(data->my_kthread);
+	if (data->player_thread) {
+		kthread_stop(data->player_thread);
 	}
 
-	hrtimer_cancel(&data->my_hrtimer);
+	hrtimer_cancel(&data->player_timer);
 	clear_all_hex_0_3(player->hex_reg);
 	clear_leds(player->led_reg);
 	kfree(data);
@@ -137,7 +138,7 @@ void stop_player(struct player *player)
 static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 {
 	struct player_data *data;
-	data = container_of(timer, struct player_data, my_hrtimer);
+	data = container_of(timer, struct player_data, player_timer);
 
 	data->condition = 1;
 	wake_up_interruptible(&data->wait_queue);
@@ -221,12 +222,12 @@ static void define_player_state(struct player_data *data)
 		case PLAYING:
 			pr_info("[%s]: Pausing\n", LIB_NAME);
 			data->state = PAUSED;
-			hrtimer_cancel(&data->my_hrtimer);
+			hrtimer_cancel(&data->player_timer);
 			break;
 		case PAUSED:
 			pr_info("[%s]: Playing\n", LIB_NAME);
 			data->state = PLAYING;
-			hrtimer_start(&data->my_hrtimer,
+			hrtimer_start(&data->player_timer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
 				      HRTIMER_MODE_REL);
 			break;
