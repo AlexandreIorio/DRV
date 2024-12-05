@@ -5,10 +5,10 @@ TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
 DEPLOY_DIR := /export/drv/
 
 # Nom du module kernel
-obj-m := drivify.o
+obj-m := drivify_player.o
 
 # Fichiers supplémentaires pour le module kernel
-drivify-y := ex1.o playlist.o player.o keys.o hex.o led.o 
+drivify_player-y := drivify.o playlist.o player.o keys.o hex.o led.o 
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
@@ -28,7 +28,7 @@ add_music: insert_music.c
 
 deploy:
 	@echo "Deploying drivify.ko and add_music to $(DEPLOY_DIR)"
-	cp drivify.ko $(DEPLOY_DIR)
+	cp drivify_player.ko $(DEPLOY_DIR)
 	cp add_music $(DEPLOY_DIR)
 
 clean:
