@@ -6,7 +6,7 @@ struct player {
 	struct kfifo *playlist;
 	void *__iomem hex_reg;
 	void *__iomem led_reg;
-	void *parent;
+	void *data;
 	spinlock_t playlist_lock;
 };
 

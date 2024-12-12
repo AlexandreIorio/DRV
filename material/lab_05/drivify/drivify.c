@@ -253,6 +253,7 @@ static int drivify_probe(struct platform_device *pdev)
 	priv->is_open = false;
 
 	platform_set_drvdata(pdev, priv);
+	dev_set_drvdata(&pdev->dev, priv);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
