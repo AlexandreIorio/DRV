@@ -4,6 +4,7 @@
 #include "player.h"
 #include "playlist.h"
 #include "drivify_shared_types.h"
+#include "drivify_sysfs.h"
 #include <linux/init.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
@@ -342,6 +343,8 @@ static int drivify_probe(struct platform_device *pdev)
 	priv->player->led_reg = priv->regs->led_reg;
 	initialize_player(priv->player);
 
+	init_drivify_sysfs(priv->dev);
+
 	pr_info("[%s]: Module ready!\n", DEVICE_NAME);
 	return 0;
 
@@ -379,6 +382,7 @@ static int drivify_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	remove_drivify_sysfs(priv->dev);
 	keys_disable_interrupts(priv->regs->keys_reg);
 	stop_player(priv->player);
 	kfifo_free(priv->player->playlist);
@@ -397,7 +401,7 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	uint8_t key_index;
 
 	priv = (struct priv *)dev_id;
-	key_index = read_keys(priv->regs->keys_reg);
+	key_index = read_keys(priv->regs->keys_reg) & USED_KEYS_MASK;
 	pr_info("[%s]: Key %d pressed\n", DEVICE_NAME, key_index);
 	switch (key_index) {
 	case 1:

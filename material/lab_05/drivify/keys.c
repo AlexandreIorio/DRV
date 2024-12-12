@@ -18,6 +18,7 @@ int read_key(void __iomem *key_reg, uint8_t key_index)
 
 uint8_t read_keys(void __iomem *key_reg)
 {
+	uint8_t keys;
 	void __iomem *edge_capture_reg;
 	if (!key_reg) {
 		pr_err("[%s]: Impossible to read keys register because it is NULL\n",
@@ -26,7 +27,9 @@ uint8_t read_keys(void __iomem *key_reg)
 	}
 
 	edge_capture_reg = key_reg + KEYS_EDGE_OFFSET;
-	return ioread8(edge_capture_reg);
+	keys = ioread8(edge_capture_reg);
+	printk(KERN_INFO "[%s]: Reading keys: 0x%x\n", HW_NAME, keys);
+	return keys;
 }
 
 void keys_enable_interrupts(void __iomem *key_reg, uint8_t key_mask)
