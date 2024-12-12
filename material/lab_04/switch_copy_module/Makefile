@@ -5,6 +5,7 @@ TOOLCHAIN := /opt/toolchains/arm-linux-gnueabihf_6.4.1/bin/arm-linux-gnueabihf-
 DEPLOY_DIR := /export/drv/labo04/
 
 obj-m := switch_copy.o
+switch_copy-y := button.o switch.o
 
 PWD := $(shell pwd)
 WARN := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
