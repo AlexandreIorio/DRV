@@ -7,7 +7,6 @@
 #include <linux/kernel.h>
 #include "player.h"
 #include "hex.h"
-#include "music.h"
 #include "led.h"
 
 #include <linux/init.h>
@@ -41,7 +40,7 @@ enum PLAYER_COMMAND {
 };
 
 struct player_data {
-	struct player *player;
+	struct player *parent;
 	struct task_struct *player_thread;
 	struct hrtimer player_timer;
 	wait_queue_head_t wait_queue;
@@ -91,13 +90,13 @@ int initialize_player(struct player *player)
 
 	data->condition = 0;
 
-	data->player = player;
+	data->parent = player;
 	data->state = PAUSED;
 	data->command = NONE;
 	data->current_duration = 0;
 
 	// used to access the player_data from stop method
-	data->player->parent = data;
+	data->parent->data = data;
 
 	// Initialiser le hrtimer
 	hrtimer_init(&data->player_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -106,7 +105,7 @@ int initialize_player(struct player *player)
 	reset_current_song(data);
 	clear_all_hex_0_3(player->hex_reg);
 	clear_leds(player->led_reg);
-	display_time_3_0(0, data->player->hex_reg);
+	display_time_3_0(0, data->parent->hex_reg);
 
 	return 0;
 }
@@ -114,7 +113,7 @@ int initialize_player(struct player *player)
 void stop_player(struct player *player)
 {
 	struct player_data *data;
-	data = (struct player_data *)player->parent;
+	data = (struct player_data *)player->data;
 	if (data->player_thread) {
 		kthread_stop(data->player_thread);
 	}
@@ -159,9 +158,9 @@ static int run_player(void *player_data)
 		}
 
 		get_nb_songs(&nb_songs, data);
-		display_time_3_0(data->current_duration, data->player->hex_reg);
-		clear_leds(data->player->led_reg);
-		leds_up(nb_songs, data->player->led_reg);
+		display_time_3_0(data->current_duration, data->parent->hex_reg);
+		clear_leds(data->parent->led_reg);
+		leds_up(nb_songs, data->parent->led_reg);
 		data->condition = 0; // Réinitialiser la condition
 	}
 	return 0;
@@ -171,8 +170,8 @@ static void play(struct player_data *data)
 {
 	if (data->current_duration >= data->current_song.duration) {
 		data->current_duration = 0;
-		if (kfifo_is_empty_spinlocked(data->player->playlist,
-					      &data->player->playlist_lock)) {
+		if (kfifo_is_empty_spinlocked(data->parent->playlist,
+					      &data->parent->playlist_lock)) {
 			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
 			reset_current_song(data);
 			data->command = PLAY_PAUSE;
@@ -197,11 +196,11 @@ static void get_nb_songs(uint8_t *nb_songs, struct player_data *data)
 	if (data->command == NEXT) {
 		return;
 	} else if (data->current_song.duration != 0) {
-		*nb_songs = kfifo_len(data->player->playlist) /
+		*nb_songs = kfifo_len(data->parent->playlist) /
 				    sizeof(struct music) +
 			    1; // +1 pour le morceau en cours
 	} else {
-		*nb_songs = kfifo_len(data->player->playlist) /
+		*nb_songs = kfifo_len(data->parent->playlist) /
 			    sizeof(struct music);
 	}
 }
@@ -234,9 +233,9 @@ static void define_player_state(struct player_data *data)
 		break;
 
 	case NEXT:
-		ret = kfifo_out_spinlocked(data->player->playlist, &next_music,
+		ret = kfifo_out_spinlocked(data->parent->playlist, &next_music,
 					   sizeof(struct music),
-					   &data->player->playlist_lock);
+					   &data->parent->playlist_lock);
 		if (ret == sizeof(struct music)) {
 			data->current_duration = 0;
 			memcpy(&data->current_song, &next_music,
@@ -263,7 +262,7 @@ int play_pause_song(struct player *player)
 		return -EINVAL;
 	}
 
-	data = (struct player_data *)player->parent;
+	data = (struct player_data *)player->data;
 
 	data->command = PLAY_PAUSE;
 
@@ -280,7 +279,7 @@ int rewind_song(struct player *player)
 		return -EINVAL;
 	}
 
-	data = (struct player_data *)player->parent;
+	data = (struct player_data *)player->data;
 	data->command = REWIND;
 	wake_up_player(data);
 
@@ -294,7 +293,7 @@ int next_song(struct player *player)
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
 		return -EINVAL;
 	}
-	data = (struct player_data *)player->parent;
+	data = (struct player_data *)player->data;
 
 	data->command = NEXT;
 	if (!kfifo_is_empty_spinlocked(player->playlist,
@@ -311,7 +310,7 @@ void refresh_player(struct player *player)
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
 		return;
 	}
-	data = (struct player_data *)player->parent;
+	data = (struct player_data *)player->data;
 	if (data->state == PAUSED) {
 		wake_up_player(data);
 	}
