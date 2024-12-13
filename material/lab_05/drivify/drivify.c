@@ -25,7 +25,6 @@
 #define LED_OFFSET 0x00
 #define HEX_OFFSET_0_3 0x20
 #define HEX_OFFSET_4_5 0x30
-struct priv;
 
 ///@brief the probe method called when the device is detected
 ///@param pdev the platform device detected
@@ -125,18 +124,6 @@ struct hw_registers {
 	void __iomem *hex_0_3_reg;
 	void __iomem *hex_4_5_reg;
 	void __iomem *led_reg;
-};
-
-///@brief the private structure of the device
-struct priv {
-	struct class *cl;
-	struct device *dev;
-	struct cdev cdev;
-	struct hw_registers *regs;
-	struct player *player;
-	dev_t majmin;
-	bool is_open;
-	bool is_running;
 };
 
 static int drivify_uevent(struct device *dev, struct kobj_uevent_env *env)
