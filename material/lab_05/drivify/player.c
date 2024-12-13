@@ -124,6 +124,24 @@ void stop_player(struct player *player)
 	kfree(data);
 }
 
+void get_current_song(struct player *player, struct music *current_song)
+{
+	struct player_data *data;
+
+	if (current_song == NULL) {
+		pr_err("[%s]: current_song is NULL\n", LIB_NAME);
+		return;
+	}
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return;
+	}
+
+	data = (struct player_data *)player->data;
+	memcpy(current_song, &data->current_song, sizeof(struct music));
+}
+
 static void wake_up_player(struct player_data *data)
 {
 	data->condition = 1;

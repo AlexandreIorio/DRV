@@ -1,6 +1,5 @@
 #include "drivify_sysfs.h"
 #include "linux/device.h"
-#include "linux/platform_device.h"
 #include "player.h"
 
 static ssize_t drivify_current_title_show(struct device *dev,
@@ -8,10 +7,16 @@ static ssize_t drivify_current_title_show(struct device *dev,
 					  char *buf)
 {
 	struct priv *priv;
-
+	struct music current_song;
 	priv = (struct priv *)dev_get_drvdata(dev);
 
-	return sprintf(buf, "drivify current title\n");
+	get_current_song(priv->player, &current_song);
+
+	if (current_song.name[0] == '\0') {
+		return sprintf(buf, "No song is playing\n");
+	}
+
+	return sprintf(buf, current_song.name);
 }
 
 static DEVICE_ATTR_RO(drivify_current_title);
