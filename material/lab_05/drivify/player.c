@@ -2,6 +2,7 @@
 #include "led.h"
 #include "linux/container_of.h"
 #include "linux/hrtimer.h"
+#include "linux/spinlock.h"
 #include <linux/time.h>
 #include <linux/kthread.h>
 #include <linux/kernel.h>
@@ -153,6 +154,127 @@ void get_nb_songs(struct player *player, uint8_t *nb_songs)
 	} else {
 		*nb_songs = kfifo_len(data->parent->playlist) /
 			    sizeof(struct music);
+	}
+}
+
+void get_total_duration(struct player *player, uint32_t *total_duration)
+{
+	struct player_data *data;
+	struct kfifo playlist;
+	int nb_songs;
+	struct music song;
+	int ret;
+
+	data = (struct player_data *)player->data;
+
+	spin_lock(&player->playlist_lock);
+	memcpy(&playlist, data->parent->playlist, sizeof(struct kfifo));
+	spin_unlock(&player->playlist_lock);
+
+	nb_songs = kfifo_len(&playlist) / sizeof(struct music);
+
+	for (int i = 0; i < nb_songs; i++) {
+		ret = kfifo_out(&playlist, &song, sizeof(struct music));
+		*total_duration += song.duration;
+	}
+
+	*total_duration += data->current_song.duration - data->current_duration;
+}
+
+int get_current_duration(struct player *player, uint32_t *current_duration)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->data;
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	if (!data) {
+		pr_err("[%s]: Data is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	if (data->current_song.duration == 0) {
+		*current_duration = -1;
+		return 0;
+	}
+
+	*current_duration = data->current_duration;
+	return 0;
+}
+
+int set_current_duration(struct player *player, uint32_t current_duration)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->data;
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -1;
+	}
+
+	if (!data) {
+		pr_err("[%s]: Data is NULL\n", LIB_NAME);
+		return -1;
+	}
+
+	if (current_duration > data->current_song.duration) {
+		pr_err("[%s]: Current duration is greater than the song duration\n",
+		       LIB_NAME);
+		return -1;
+	}
+
+	data->current_duration = current_duration;
+	return 0;
+}
+
+void do_play(struct player *player)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->data;
+
+	if (data->state == PAUSED) {
+		data->command = PLAY_PAUSE;
+		wake_up_player(data);
+		return;
+	}
+}
+
+void do_pause(struct player *player)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->data;
+
+	if (data->state == PLAYING) {
+		data->command = PLAY_PAUSE;
+		wake_up_player(data);
+		return;
+	}
+}
+
+int get_player_state(struct player *player)
+{
+	struct player_data *data;
+	data = (struct player_data *)player->data;
+
+	if (!player) {
+		pr_err("[%s]: Player is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	if (!data) {
+		pr_err("[%s]: Data is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	if (data->state == PLAYING) {
+		return 1;
+	} else if (data->state == PAUSED) {
+		return 0;
+	} else {
+		return -1;
 	}
 }
 
