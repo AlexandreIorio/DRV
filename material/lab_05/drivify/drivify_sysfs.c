@@ -82,6 +82,7 @@ void init_drivify_sysfs(struct device *dev)
 	device_create_file(dev, &dev_attr_drivify_current_title);
 	device_create_file(dev, &dev_attr_drivify_current_artist);
 	device_create_file(dev, &dev_attr_drivify_current_duration);
+	device_create_file(dev, &dev_attr_drivify_playlist_total_songs);
 }
 
 void remove_drivify_sysfs(struct device *dev)
@@ -90,4 +91,5 @@ void remove_drivify_sysfs(struct device *dev)
 	device_remove_file(dev, &dev_attr_drivify_current_title);
 	device_remove_file(dev, &dev_attr_drivify_current_artist);
 	device_remove_file(dev, &dev_attr_drivify_current_duration);
+	device_remove_file(dev, &dev_attr_drivify_playlist_total_songs);
 }

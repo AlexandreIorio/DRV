@@ -23,7 +23,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/kfifo.h>
-#include <stdint.h>
 
 #define LIB_NAME "player"
 #define TIMER_INTERVAL_NS (1 * 1000 * 1000 * 1000)
