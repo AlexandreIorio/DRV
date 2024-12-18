@@ -187,7 +187,7 @@ static int drivify_release(struct inode *inode, struct file *filp)
 static ssize_t drivify_read(struct file *filp, char __user *buf, size_t count,
 			    loff_t *ppos)
 {
-	pr_info("[%s]: Reading\n", DEVICE_NAME);
+	pr_info("[%s]: Reading this fs do nothing\n", DEVICE_NAME);
 	return 0;
 }
 
