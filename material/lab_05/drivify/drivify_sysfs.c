@@ -63,7 +63,7 @@ static ssize_t drivify_playlist_total_songs_show(struct device *dev,
 	struct priv *priv;
 	priv = (struct priv *)dev_get_drvdata(dev);
 
-	nb_songs = get_nb_songs(priv->player);
+	get_nb_songs(priv->player, &nb_songs);
 
 	return sprintf(buf, "%d\n", nb_songs);
 }

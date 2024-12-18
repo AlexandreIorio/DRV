@@ -141,23 +141,19 @@ void get_current_song(struct player *player, struct music *music_dest)
 	memcpy(music_dest, &data->current_song, sizeof(struct music));
 }
 
-uint8_t get_nb_songs(struct player *player)
+void get_nb_songs(struct player *player, uint8_t *nb_songs)
 {
-	uint8_t nb_songs;
 	struct player_data *data;
 	data = (struct player_data *)player->data;
 
-	if (data->command == NEXT) {
-		return 0;
-	} else if (data->current_song.duration != 0) {
-		nb_songs = kfifo_len(data->parent->playlist) /
-				   sizeof(struct music) +
-			   1; // +1 because the current song is in the count
+	if (data->current_song.duration != 0) {
+		*nb_songs = kfifo_len(data->parent->playlist) /
+				    sizeof(struct music) +
+			    1; // +1 because the current song is in the count
 	} else {
-		nb_songs = kfifo_len(data->parent->playlist) /
-			   sizeof(struct music);
+		*nb_songs = kfifo_len(data->parent->playlist) /
+			    sizeof(struct music);
 	}
-	return nb_songs;
 }
 
 static void wake_up_player(struct player_data *data)
@@ -193,7 +189,7 @@ static int run_player(void *player_data)
 			play(data);
 		}
 
-		nb_songs = get_nb_songs(data->parent);
+		get_nb_songs(data->parent, &nb_songs);
 		display_time_3_0(data->current_duration, data->parent->hex_reg);
 		clear_leds(data->parent->led_reg);
 		leds_up(nb_songs, data->parent->led_reg);

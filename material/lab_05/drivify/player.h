@@ -27,6 +27,6 @@ void get_current_song(struct player *player, struct music *music);
 
 /// @brief get the number of songs in the playlist of the player
 /// @param player the player
-/// @return the number of songs
-uint8_t get_nb_songs(struct player *player);
+/// @param nb_songs the buffer to store the number of songs
+void get_nb_songs(struct player *player, uint8_t *nb_songs);
 #endif // PLAYER_H
