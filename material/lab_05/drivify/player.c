@@ -255,6 +255,8 @@ int set_current_duration(struct player *player, uint32_t current_duration)
 
 	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	data->current_duration = current_duration;
+	data->condition = 1;
+	wake_up_interruptible(&data->wait_queue);
 	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	return 0;
 }
