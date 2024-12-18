@@ -15,6 +15,7 @@ bool is_initilized_playlist(struct kfifo *playlist);
 /// @param playlist The playlist to fill
 /// @return 0 if no error
 /// @param music The music to add
+/// @note in this method a spinlock is used to protect the playlist, the irq will be saved and restored
 int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 			  spinlock_t *playlist_lock);
 
@@ -22,5 +23,6 @@ int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 /// @param playlist The playlist to get the music from
 /// @param music The music to fill
 /// @return 0 if no error
+/// @note in this method a spinlock is used to protect the playlist, the irq will be saved and restored
 int get_music_from_playlist(struct kfifo *playlist, struct music *music,
 			    spinlock_t *playlist_lock);

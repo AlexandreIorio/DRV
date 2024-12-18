@@ -53,11 +53,29 @@ struct player_data {
 };
 
 static int run_player(void *player);
+/// @brief Define the player state
+/// @param data the player data
+/// @note this method is thread safe
 static void define_player_state(struct player_data *data);
+
+/// @brief Callback of the hrtimer
+/// @param timer the timer
+/// @return HRTIMER_RESTART
+/// @note this method is called on a soft irq context when the timer expires it does not
+/// need to be protected by a spinlock because all others spinlocks will save and restore the irq
 static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer);
 
+/// @brief Wake up the player
+/// @param data the player data
+/// @note this method is thread safe
 static void play(struct player_data *data);
+
+/// @brief Pause the player
+/// @param data the player data
 static void reset_current_song(struct player_data *data);
+
+/// @brief Wake up the player
+/// @param data the player data
 static void wake_up_player(struct player_data *data);
 
 int initialize_player(struct player *player)
@@ -121,12 +139,17 @@ void stop_player(struct player *player)
 	hrtimer_cancel(&data->player_timer);
 	clear_all_hex_0_3(player->hex_reg);
 	clear_leds(player->led_reg);
-	kfree(data);
+
+	if (data != NULL) {
+		kfree(data);
+	}
 }
 
 void get_current_song(struct player *player, struct music *music_dest)
 {
 	struct player_data *data;
+	unsigned long irq_flags;
+
 	data = (struct player_data *)player->data;
 
 	if (!player) {
@@ -139,14 +162,16 @@ void get_current_song(struct player *player, struct music *music_dest)
 		return;
 	}
 
+	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	memcpy(music_dest, &data->current_song, sizeof(struct music));
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 }
 
 void get_nb_songs(struct player *player, uint8_t *nb_songs)
 {
 	struct player_data *data;
 	data = (struct player_data *)player->data;
-
+	/// note that kfifo_len is thread safe
 	if (data->current_song.duration != 0) {
 		*nb_songs = kfifo_len(data->parent->playlist) /
 				    sizeof(struct music) +
@@ -164,16 +189,17 @@ void get_total_duration(struct player *player, uint32_t *total_duration)
 	int nb_songs;
 	struct music song;
 	int ret;
+	unsigned long irq_flags;
 
 	data = (struct player_data *)player->data;
 
-	spin_lock(&player->playlist_lock);
+	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	memcpy(&playlist, data->parent->playlist, sizeof(struct kfifo));
-	spin_unlock(&player->playlist_lock);
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 
 	nb_songs = kfifo_len(&playlist) / sizeof(struct music);
-
 	for (int i = 0; i < nb_songs; i++) {
+		// this kfifo is local then it is not necessary to protect it
 		ret = kfifo_out(&playlist, &song, sizeof(struct music));
 		*total_duration += song.duration;
 	}
@@ -208,6 +234,7 @@ int get_current_duration(struct player *player, uint32_t *current_duration)
 int set_current_duration(struct player *player, uint32_t current_duration)
 {
 	struct player_data *data;
+	unsigned long irq_flags;
 	data = (struct player_data *)player->data;
 
 	if (!player) {
@@ -226,18 +253,20 @@ int set_current_duration(struct player *player, uint32_t current_duration)
 		return -1;
 	}
 
+	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	data->current_duration = current_duration;
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	return 0;
 }
 
 void do_play(struct player *player)
 {
 	struct player_data *data;
+
 	data = (struct player_data *)player->data;
 
 	if (data->state == PAUSED) {
-		data->command = PLAY_PAUSE;
-		wake_up_player(data);
+		play_pause_song(player);
 		return;
 	}
 }
@@ -248,8 +277,7 @@ void do_pause(struct player *player)
 	data = (struct player_data *)player->data;
 
 	if (data->state == PLAYING) {
-		data->command = PLAY_PAUSE;
-		wake_up_player(data);
+		play_pause_song(player);
 		return;
 	}
 }
@@ -322,16 +350,22 @@ static int run_player(void *player_data)
 
 static void play(struct player_data *data)
 {
+	unsigned long flags;
+
+	/// This condition will lock the whole bloc of the if to be more efficient
 	if (data->current_duration >= data->current_song.duration) {
+		spin_lock_irqsave(&data->parent->playlist_lock, flags);
 		data->current_duration = 0;
-		if (kfifo_is_empty_spinlocked(data->parent->playlist,
-					      &data->parent->playlist_lock)) {
-			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
+		if (kfifo_is_empty(data->parent->playlist)) {
 			reset_current_song(data);
 			data->command = PLAY_PAUSE;
+			spin_unlock_irqrestore(&data->parent->playlist_lock,
+					       flags);
+			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
 			return;
 		}
 		data->command = NEXT;
+		spin_unlock_irqrestore(&data->parent->playlist_lock, flags);
 		return;
 	}
 
@@ -348,7 +382,10 @@ static void reset_current_song(struct player_data *data)
 static void define_player_state(struct player_data *data)
 {
 	int ret;
+	unsigned long irq_flags;
 	struct music next_music;
+
+	/// note that hrtimer methods are thread safe
 	switch (data->command) {
 	case PLAY_PAUSE:
 		switch (data->state) {
@@ -360,6 +397,7 @@ static void define_player_state(struct player_data *data)
 		case PAUSED:
 			pr_info("[%s]: Playing :[%s]\n", LIB_NAME,
 				data->current_song.name);
+
 			data->state = PLAYING;
 			hrtimer_start(&data->player_timer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
@@ -370,21 +408,28 @@ static void define_player_state(struct player_data *data)
 		}
 		break;
 	case REWIND:
+		spin_lock_irqsave(&data->parent->playlist_lock, irq_flags);
 		data->current_duration = 0;
+		spin_unlock_irqrestore(&data->parent->playlist_lock, irq_flags);
 		break;
 
 	case NEXT:
-		ret = kfifo_out_spinlocked(data->parent->playlist, &next_music,
-					   sizeof(struct music),
-					   &data->parent->playlist_lock);
+		spin_lock_irqsave(&data->parent->playlist_lock, irq_flags);
+		ret = kfifo_out(data->parent->playlist, &next_music,
+				sizeof(struct music));
 		if (ret == sizeof(struct music)) {
 			data->current_duration = 0;
 			memcpy(&data->current_song, &next_music,
 			       sizeof(struct music));
+			spin_unlock_irqrestore(&data->parent->playlist_lock,
+					       irq_flags);
+			break;
 		} else {
+			spin_unlock_irqrestore(&data->parent->playlist_lock,
+					       irq_flags);
 			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
+			break;
 		}
-		break;
 	case NONE:
 		break;
 	default:
@@ -397,6 +442,7 @@ static void define_player_state(struct player_data *data)
 int play_pause_song(struct player *player)
 {
 	struct player_data *data;
+	unsigned long flags;
 
 	if (!player) {
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
@@ -405,15 +451,18 @@ int play_pause_song(struct player *player)
 
 	data = (struct player_data *)player->data;
 
+	spin_lock_irqsave(&player->playlist_lock, flags);
 	data->command = PLAY_PAUSE;
-
 	wake_up_player(data);
+	spin_unlock_irqrestore(&player->playlist_lock, flags);
+
 	return 0;
 }
 
 int rewind_song(struct player *player)
 {
 	struct player_data *data;
+	unsigned long irq_flags;
 
 	if (!player) {
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
@@ -421,38 +470,48 @@ int rewind_song(struct player *player)
 	}
 
 	data = (struct player_data *)player->data;
+	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	data->command = REWIND;
 	wake_up_player(data);
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 
 	return 0;
 }
 
 int next_song(struct player *player)
 {
+	unsigned long irq_flags;
 	struct player_data *data;
+
 	if (!player) {
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
 		return -EINVAL;
 	}
 	data = (struct player_data *)player->data;
 
+	/// This part protect a bloc of code to be more efficient
+	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	data->command = NEXT;
-	if (!kfifo_is_empty_spinlocked(player->playlist,
-				       &player->playlist_lock)) {
+	if (!kfifo_is_empty(player->playlist)) {
 		wake_up_player(data);
 	}
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	return 0;
 }
 
 void refresh_player(struct player *player)
 {
 	struct player_data *data;
+	unsigned long irq_flags;
+
 	if (!player) {
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
 		return;
 	}
 	data = (struct player_data *)player->data;
 	if (data->state == PAUSED) {
+		spin_lock_irqsave(&player->playlist_lock, irq_flags);
 		wake_up_player(data);
+		spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	}
 }
