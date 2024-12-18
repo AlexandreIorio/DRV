@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/kfifo.h>
+#include <stdint.h>
 
 #define LIB_NAME "player"
 #define TIMER_INTERVAL_NS (1 * 1000 * 1000 * 1000)
@@ -57,7 +58,6 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer);
 
 static void play(struct player_data *data);
 static void reset_current_song(struct player_data *data);
-static void get_nb_songs(uint8_t *nb_songs, struct player_data *data);
 static void wake_up_player(struct player_data *data);
 
 int initialize_player(struct player *player)
@@ -124,22 +124,41 @@ void stop_player(struct player *player)
 	kfree(data);
 }
 
-void get_current_song(struct player *player, struct music *current_song)
+void get_current_song(struct player *player, struct music *music_dest)
 {
 	struct player_data *data;
-
-	if (current_song == NULL) {
-		pr_err("[%s]: current_song is NULL\n", LIB_NAME);
-		return;
-	}
+	data = (struct player_data *)player->data;
 
 	if (!player) {
 		pr_err("[%s]: Player is NULL\n", LIB_NAME);
 		return;
 	}
 
+	if (!data) {
+		pr_err("[%s]: Data is NULL\n", LIB_NAME);
+		return;
+	}
+
+	memcpy(music_dest, &data->current_song, sizeof(struct music));
+}
+
+uint8_t get_nb_songs(struct player *player)
+{
+	uint8_t nb_songs;
+	struct player_data *data;
 	data = (struct player_data *)player->data;
-	memcpy(current_song, &data->current_song, sizeof(struct music));
+
+	if (data->command == NEXT) {
+		return 0;
+	} else if (data->current_song.duration != 0) {
+		nb_songs = kfifo_len(data->parent->playlist) /
+				   sizeof(struct music) +
+			   1; // +1 because the current song is in the count
+	} else {
+		nb_songs = kfifo_len(data->parent->playlist) /
+			   sizeof(struct music);
+	}
+	return nb_songs;
 }
 
 static void wake_up_player(struct player_data *data)
@@ -175,7 +194,7 @@ static int run_player(void *player_data)
 			play(data);
 		}
 
-		get_nb_songs(&nb_songs, data);
+		nb_songs = get_nb_songs(data->parent);
 		display_time_3_0(data->current_duration, data->parent->hex_reg);
 		clear_leds(data->parent->led_reg);
 		leds_up(nb_songs, data->parent->led_reg);
@@ -207,20 +226,6 @@ static void reset_current_song(struct player_data *data)
 	data->current_song.duration = 0;
 	data->current_song.name[0] = '\0';
 	data->current_song.artist[0] = '\0';
-}
-
-static void get_nb_songs(uint8_t *nb_songs, struct player_data *data)
-{
-	if (data->command == NEXT) {
-		return;
-	} else if (data->current_song.duration != 0) {
-		*nb_songs = kfifo_len(data->parent->playlist) /
-				    sizeof(struct music) +
-			    1; // +1 pour le morceau en cours
-	} else {
-		*nb_songs = kfifo_len(data->parent->playlist) /
-			    sizeof(struct music);
-	}
 }
 
 static void define_player_state(struct player_data *data)
