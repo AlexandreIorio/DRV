@@ -69,7 +69,8 @@ int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 		return -ENOSPC;
 	}
 
-	pr_info("[%s]: Music added to playlist\n", LIB_NAME);
+	pr_info("[%s]: Music added to playlist: Title [%s] Artiste [%s] Duration [%d]\n",
+		LIB_NAME, music->name, music->artist, music->duration);
 	return 0;
 }
 

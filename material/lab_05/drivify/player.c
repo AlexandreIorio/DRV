@@ -236,7 +236,8 @@ static void define_player_state(struct player_data *data)
 			hrtimer_cancel(&data->player_timer);
 			break;
 		case PAUSED:
-			pr_info("[%s]: Playing\n", LIB_NAME);
+			pr_info("[%s]: Playing :[%s]\n", LIB_NAME,
+				data->current_song.name);
 			data->state = PLAYING;
 			hrtimer_start(&data->player_timer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
