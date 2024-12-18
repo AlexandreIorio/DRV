@@ -78,6 +78,8 @@ static void reset_current_song(struct player_data *data);
 /// @param data the player data
 static void wake_up_player(struct player_data *data);
 
+static void reset_timer(struct player_data *data);
+
 int initialize_player(struct player *player)
 {
 	struct player_data *data;
@@ -258,6 +260,7 @@ int set_current_duration(struct player *player, uint32_t current_duration)
 	data->condition = 1;
 	wake_up_interruptible(&data->wait_queue);
 	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
+	reset_timer(data);
 	return 0;
 }
 
@@ -312,6 +315,13 @@ static void wake_up_player(struct player_data *data)
 {
 	data->condition = 1;
 	wake_up_interruptible(&data->wait_queue);
+}
+
+static void reset_timer(struct player_data *data)
+{
+	hrtimer_cancel(&data->player_timer);
+	hrtimer_start(&data->player_timer, ns_to_ktime(TIMER_INTERVAL_NS),
+		      HRTIMER_MODE_REL);
 }
 
 static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
@@ -413,6 +423,7 @@ static void define_player_state(struct player_data *data)
 		spin_lock_irqsave(&data->parent->playlist_lock, irq_flags);
 		data->current_duration = 0;
 		spin_unlock_irqrestore(&data->parent->playlist_lock, irq_flags);
+		reset_timer(data);
 		break;
 
 	case NEXT:
@@ -498,6 +509,7 @@ int next_song(struct player *player)
 		wake_up_player(data);
 	}
 	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
+	reset_timer(data);
 	return 0;
 }
 
