@@ -11,12 +11,6 @@
 /// @return true if the playlist is initialized, false otherwise
 bool is_initilized_playlist(struct kfifo *playlist);
 
-/// @brief Get a music from a string
-/// @param music The music to fill
-/// @param str The string to parse
-/// @return 0 if no error
-int get_music_from_string(struct music *music, const char *str);
-
 /// @brief Set a music to a playlist
 /// @param playlist The playlist to fill
 /// @return 0 if no error

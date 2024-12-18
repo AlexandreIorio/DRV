@@ -20,31 +20,6 @@ bool is_initilized_playlist(struct kfifo *playlist)
 	return true;
 }
 
-int get_music_from_string(struct music *music, const char *str)
-{
-	int ret;
-	if (str == NULL) {
-		pr_err("[%s]: String is NULL\n", LIB_NAME);
-		return -EINVAL;
-	}
-
-	if (music == NULL) {
-		pr_err("[%s]: Music is NULL\n", LIB_NAME);
-		return -EINVAL;
-	}
-
-	ret = sscanf(str, "%" STR(NAME_SIZE) "s %" STR(ARTIST_SIZE) "s %d",
-		     music->name, music->artist, &music->duration);
-	if (ret != 3) {
-		pr_err("[%s]: Failed to parse music\n", LIB_NAME);
-		return -EINVAL;
-	}
-	pr_info("[%s]: Music parsed: Name='%s', Artist='%s', Duration=%d\n",
-		LIB_NAME, music->name, music->artist, music->duration);
-
-	return ret;
-}
-
 int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 			  spinlock_t *playlist_lock)
 {
