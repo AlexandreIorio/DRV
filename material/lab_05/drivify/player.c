@@ -54,7 +54,10 @@ struct player_data {
 	unsigned int current_duration;
 };
 
-static int run_player(void *player);
+/// @brief The main loop of the player
+/// @param player the player data
+static void run_player(void *player);
+
 /// @brief Define the player state
 /// @param data the player data
 /// @note this method is thread safe
@@ -122,10 +125,9 @@ int initialize_player(struct player *player)
 	data->command = NONE;
 	data->current_duration = 0;
 
-	// used to access the player_data from stop method
 	data->parent->data = data;
 
-	// Initialiser le hrtimer
+	// Initialize the timer
 	hrtimer_init(&data->player_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	data->player_timer.function = hrtimer_callback;
 
@@ -339,11 +341,11 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 	data->condition = 1;
 	wake_up_interruptible(&data->wait_queue);
 	hrtimer_forward_now(
-		timer, ns_to_ktime(TIMER_INTERVAL_NS)); // Relancer le timer}
+		timer, ns_to_ktime(TIMER_INTERVAL_NS)); // Restart the timer
 	return HRTIMER_RESTART;
 }
 
-static int run_player(void *player_data)
+static void run_player(void *player_data)
 {
 	struct player_data *data;
 
@@ -359,9 +361,8 @@ static int run_player(void *player_data)
 
 		display_time_3_0(data->current_duration, data->parent->hex_reg);
 		display_nb_songs(data);
-		data->condition = 0; // Réinitialiser la condition
+		data->condition = 0; // Reset the condition
 	}
-	return 0;
 }
 
 static void play(struct player_data *data)
@@ -413,13 +414,16 @@ static void define_player_state(struct player_data *data)
 	unsigned long irq_flags;
 	struct music next_music;
 
-	/// note that hrtimer methods are thread safe
+	/// note that if we lock a part of code, we use break and we unlock the code at the end.
+	/// if we doesn't lock the code, we use return to exit the method
 	switch (data->command) {
 	case PLAY_PAUSE:
 		switch (data->state) {
 		case PLAYING:
 			pr_info("[%s]: Pausing\n", LIB_NAME);
 			data->state = PAUSED;
+			spin_lock_irqsave(&data->parent->playlist_lock,
+					  irq_flags);
 			led_down(LED_PLAYING, data->parent->led_reg);
 			hrtimer_cancel(&data->player_timer);
 			break;
@@ -428,6 +432,8 @@ static void define_player_state(struct player_data *data)
 				data->current_song.name);
 
 			data->state = PLAYING;
+			spin_lock_irqsave(&data->parent->playlist_lock,
+					  irq_flags);
 			led_up(LED_PLAYING, data->parent->led_reg);
 			hrtimer_start(&data->player_timer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
@@ -440,7 +446,6 @@ static void define_player_state(struct player_data *data)
 	case REWIND:
 		spin_lock_irqsave(&data->parent->playlist_lock, irq_flags);
 		data->current_duration = 0;
-		spin_unlock_irqrestore(&data->parent->playlist_lock, irq_flags);
 		reset_timer(data);
 		break;
 
@@ -452,22 +457,22 @@ static void define_player_state(struct player_data *data)
 			data->current_duration = 0;
 			memcpy(&data->current_song, &next_music,
 			       sizeof(struct music));
-			spin_unlock_irqrestore(&data->parent->playlist_lock,
-					       irq_flags);
 			break;
 		} else {
-			spin_unlock_irqrestore(&data->parent->playlist_lock,
-					       irq_flags);
 			pr_info("[%s]: Playlist is empty\n", LIB_NAME);
 			break;
 		}
 	case NONE:
-		break;
+		//never spinlocked
+		return;
 	default:
+		//never spinlocked
 		pr_err("[%s]: Invalid command\n", LIB_NAME);
-		break;
+		return;
 	}
+
 	data->command = NONE;
+	spin_unlock_irqrestore(&data->parent->playlist_lock, irq_flags);
 }
 
 int play_pause_song(struct player *player)
