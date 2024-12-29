@@ -1,4 +1,5 @@
 #include "linux/kfifo.h"
+#include "linux/printk.h"
 #include "music.h"
 #include "playlist.h"
 #include <linux/kernel.h>
@@ -24,6 +25,7 @@ int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 			  spinlock_t *playlist_lock)
 {
 	int ret;
+	int nb_elements;
 
 	if (!is_initilized_playlist(playlist)) {
 		pr_err("[%s]: Playlist is not initialized\n", LIB_NAME);
@@ -33,6 +35,18 @@ int set_music_to_playlist(struct kfifo *playlist, struct music *music,
 	if (music == NULL) {
 		pr_err("[%s]: Music is NULL\n", LIB_NAME);
 		return -EINVAL;
+	}
+
+	if (playlist_lock == NULL) {
+		pr_err("[%s]: Playlist lock is NULL\n", LIB_NAME);
+		return -EINVAL;
+	}
+
+	nb_elements = kfifo_len(playlist) / sizeof(struct music);
+
+	if (nb_elements >= PLAYLIST_SIZE) {
+		pr_err("[%s]: Playlist is full\n", LIB_NAME);
+		return -ENOSPC;
 	}
 
 	ret = kfifo_in_spinlocked(playlist, music, sizeof(struct music),
