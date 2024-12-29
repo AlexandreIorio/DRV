@@ -317,6 +317,10 @@ static int drivify_probe(struct platform_device *pdev)
 
 	err = kfifo_alloc(priv->player->playlist,
 			  PLAYLIST_SIZE * sizeof(struct music), GFP_KERNEL);
+
+	pr_info("[%s]: Playlist initialized with %d elements\n", DEVICE_NAME,
+		kfifo_size(priv->player->playlist) / sizeof(struct music));
+
 	spin_lock_init(&priv->player->playlist_lock);
 
 	if (err) {
