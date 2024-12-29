@@ -27,6 +27,8 @@
 
 #define LIB_NAME "player"
 #define TIMER_INTERVAL_NS (1 * 1000 * 1000 * 1000)
+#define LED_PLAYING 9
+#define LEDS_SONGS 0x1F
 
 enum PLAYER_STATE {
 	PLAYING, // The player is playing a song
@@ -73,6 +75,11 @@ static void play(struct player_data *data);
 /// @brief Pause the player
 /// @param data the player data
 static void reset_current_song(struct player_data *data);
+
+/// @brief Display the number of songs on leds
+/// @param data the player data
+/// @note this method protect the access to the led register
+static void display_nb_songs(struct player_data *data);
 
 /// @brief Wake up the player
 /// @param data the player data
@@ -338,7 +345,6 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 
 static int run_player(void *player_data)
 {
-	uint8_t nb_songs;
 	struct player_data *data;
 
 	data = (struct player_data *)player_data;
@@ -351,10 +357,8 @@ static int run_player(void *player_data)
 			play(data);
 		}
 
-		get_nb_songs(data->parent, &nb_songs);
 		display_time_3_0(data->current_duration, data->parent->hex_reg);
-		clear_leds(data->parent->led_reg);
-		leds_up(nb_songs, data->parent->led_reg);
+		display_nb_songs(data);
 		data->condition = 0; // Réinitialiser la condition
 	}
 	return 0;
@@ -391,6 +395,18 @@ static void reset_current_song(struct player_data *data)
 	data->current_song.artist[0] = '\0';
 }
 
+static void display_nb_songs(struct player_data *data)
+{
+	uint8_t nb_songs;
+	unsigned long irq_flags;
+	get_nb_songs(data->parent, &nb_songs);
+
+	spin_lock_irqsave(&data->parent->playlist_lock, irq_flags);
+	leds_down(LEDS_SONGS, data->parent->led_reg);
+	leds_up(nb_songs & LEDS_SONGS, data->parent->led_reg);
+	spin_unlock_irqrestore(&data->parent->playlist_lock, irq_flags);
+}
+
 static void define_player_state(struct player_data *data)
 {
 	int ret;
@@ -404,6 +420,7 @@ static void define_player_state(struct player_data *data)
 		case PLAYING:
 			pr_info("[%s]: Pausing\n", LIB_NAME);
 			data->state = PAUSED;
+			led_down(LED_PLAYING, data->parent->led_reg);
 			hrtimer_cancel(&data->player_timer);
 			break;
 		case PAUSED:
@@ -411,6 +428,7 @@ static void define_player_state(struct player_data *data)
 				data->current_song.name);
 
 			data->state = PLAYING;
+			led_up(LED_PLAYING, data->parent->led_reg);
 			hrtimer_start(&data->player_timer,
 				      ns_to_ktime(TIMER_INTERVAL_NS),
 				      HRTIMER_MODE_REL);
