@@ -47,7 +47,7 @@ struct player_data {
 	struct task_struct *player_thread;
 	struct hrtimer player_timer;
 	wait_queue_head_t wait_queue;
-	int condition;
+	atomic_t condition;
 	enum PLAYER_STATE state;
 	enum PLAYER_COMMAND command;
 	struct music current_song;
@@ -56,7 +56,8 @@ struct player_data {
 
 /// @brief The main loop of the player
 /// @param player the player data
-static void run_player(void *player);
+/// @return 0 if no error
+static int run_player(void *player);
 
 /// @brief Define the player state
 /// @param data the player data
@@ -118,8 +119,7 @@ int initialize_player(struct player *player)
 		return PTR_ERR(data->player_thread);
 	}
 
-	data->condition = 0;
-
+	atomic_set(&data->condition, 0);
 	data->parent = player;
 	data->state = PAUSED;
 	data->command = NONE;
@@ -266,10 +266,10 @@ int set_current_duration(struct player *player, uint32_t current_duration)
 
 	spin_lock_irqsave(&player->playlist_lock, irq_flags);
 	data->current_duration = current_duration;
-	data->condition = 1;
+	atomic_set(&data->condition, 1);
 	wake_up_interruptible(&data->wait_queue);
-	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	reset_timer(data);
+	spin_unlock_irqrestore(&player->playlist_lock, irq_flags);
 	return 0;
 }
 
@@ -322,7 +322,7 @@ int get_player_state(struct player *player)
 
 static void wake_up_player(struct player_data *data)
 {
-	data->condition = 1;
+	atomic_set(&data->condition, 1);
 	wake_up_interruptible(&data->wait_queue);
 }
 
@@ -338,21 +338,21 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 	struct player_data *data;
 	data = container_of(timer, struct player_data, player_timer);
 
-	data->condition = 1;
+	atomic_set(&data->condition, 1);
 	wake_up_interruptible(&data->wait_queue);
 	hrtimer_forward_now(
 		timer, ns_to_ktime(TIMER_INTERVAL_NS)); // Restart the timer
 	return HRTIMER_RESTART;
 }
 
-static void run_player(void *player_data)
+static int run_player(void *player_data)
 {
 	struct player_data *data;
 
 	data = (struct player_data *)player_data;
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(data->wait_queue,
-					 data->condition ||
+					 atomic_read(&data->condition) ||
 						 kthread_should_stop());
 		define_player_state(data);
 		if (data->state == PLAYING) {
@@ -361,8 +361,9 @@ static void run_player(void *player_data)
 
 		display_time_3_0(data->current_duration, data->parent->hex_reg);
 		display_nb_songs(data);
-		data->condition = 0; // Reset the condition
+		atomic_set(&data->condition, 0); // Reset the condition
 	}
+	return 0;
 }
 
 static void play(struct player_data *data)
